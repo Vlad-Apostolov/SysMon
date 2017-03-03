@@ -34,9 +34,9 @@ namespace posix_time = boost::posix_time;
 class pinger
 {
 public:
-  pinger(std::shared_ptr<boost::asio::io_service> io_service, const char* destination)
+  pinger(std::shared_ptr<boost::asio::io_service> io_service, const char* destination, std::size_t retries)
     : resolver_(*io_service), socket_(*io_service, icmp::v4()),
-      timer_(*io_service), sequence_number_(0), num_replies_(0),
+      timer_(*io_service), sequence_number_(0), num_replies_(0), num_retries_(retries),
       io_service_(io_service)
   {
     icmp::resolver::query query(icmp::v4(), destination, "");
@@ -62,6 +62,7 @@ private:
   posix_time::ptime time_sent_;
   boost::asio::streambuf reply_buffer_;
   std::size_t num_replies_;
+  std::size_t num_retries_;
   std::shared_ptr<boost::asio::io_service> io_service_;
 };
 

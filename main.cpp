@@ -31,6 +31,7 @@ static string logFileName = "";				// non empty string enables logging into a fi
 static string pingServerName = "";
 static variables_map variablesMap;
 static options_description optionsDescription{"Options"};
+static std::size_t pingRetries = 1;
 
 
 static shared_ptr<boost::asio::io_service> processingScheduler;				// processing scheduler
@@ -74,7 +75,8 @@ static void parseCommandLine(int argc, char *argv[])
 			("logLevel,l", value<string>(&logLevel)->default_value("info"), "Logging severity threshold: trace|debug|info|warning|error|fatal")
 			("consoleLog,c", "Enable console logging")
 			("logFileName,f", value<string>(&logFileName)->default_value(""), "File name for logging")
-			("pingServerName,p", value<string>(&pingServerName)->required(), "Server name to ping");
+			("pingServerName,p", value<string>(&pingServerName)->required(), "Server name to ping")
+			("pingRetries,r", value<std::size_t>(&pingRetries)->default_value(1), "Max number of ping requests before giving up");
 
 
 		command_line_parser commandLineParser{argc, argv};
@@ -113,7 +115,7 @@ int main(int argc, char *argv[])
 
 	try
 	{
-		pinger ping(processingScheduler, pingServerName.c_str());
+		pinger ping(processingScheduler, pingServerName.c_str(), pingRetries);
 		processingScheduler->run();
 		pingReplies = ping.getReplies();
 	}
