@@ -17,7 +17,7 @@ public:
 
 private:
 #define ARDUINO_I2C_SLAVE_ADDRESS	100
-#define MAX_MESSAGE_LENGHT			10
+#define MESSAGE_LENGHT				7
 
 #define PDU_ROUTER_ON				0x0001
 #define PDU_CAM1_ON					0x0002

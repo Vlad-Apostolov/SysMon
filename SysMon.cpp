@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/i2c-dev.h>
+#include <iomanip>
 
 #include "SysMon.h"
 #include "simpleLogger.h"
@@ -24,14 +25,15 @@ SysMon& SysMon::instance()
 void SysMon::rebootRouter()
 {
 	_pduControl &= ~PDU_ROUTER_ON;
+	// message format "$XX,XX\0"
 	std::stringstream os;
-	os << '$' << TAG_PDU_CONTROL << ',' << _pduControl << '\0';
+	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_PDU_CONTROL << ',' << _pduControl << '\0';
 	const char* message = os.str().c_str();
 	sendMessage(message);
 	_pduControl |= PDU_ROUTER_ON;
 	os.str("");
 	os.clear();
-	os << '$' << TAG_PDU_CONTROL << ',' << _pduControl << '\0';
+	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_PDU_CONTROL << ',' << _pduControl << '\0';
 	message = os.str().c_str();
 	sendMessage(message);
 }
