@@ -38,6 +38,8 @@ static string pingServerName = "";
 static variables_map variablesMap;
 static options_description optionsDescription{"Options"};
 static std::size_t pingRetries = 1;
+static int rpiSleepTime = 10;
+static int spiSleepTime = 1;
 
 
 static shared_ptr<boost::asio::io_service> processingScheduler;				// processing scheduler
@@ -82,7 +84,9 @@ static void parseCommandLine(int argc, char *argv[])
 			("consoleLog,c", "Enable console logging")
 			("logFileName,f", value<string>(&logFileName)->default_value(""), "File name for logging")
 			("pingServerName,p", value<string>(&pingServerName)->required(), "Server name to ping")
-			("pingRetries,r", value<std::size_t>(&pingRetries)->default_value(1), "Max number of ping requests before giving up");
+			("pingRetries,r", value<std::size_t>(&pingRetries)->default_value(1), "Max number of ping requests before giving up")
+			("rpiSleepTime,s", value<int>(&rpiSleepTime)->default_value(10), "Number of minutes for Raspberry Pi to sleep after shutdown")
+			("spiSleepTime", value<int>(&spiSleepTime)->default_value(1), "Number of minutes for Sleepy Pi to sleep");
 
 
 		command_line_parser commandLineParser{argc, argv};
@@ -132,6 +136,8 @@ int main(int argc, char *argv[])
 
 	LOG_TRACE << "ping replies: " << pingReplies;
 
+	SysMon::instance().setSleepTime(rpiSleepTime);
+	SysMon::instance().setSleepTime(spiSleepTime);
 	if (!pingReplies)
 		SysMon::instance().rebootRouter();
 

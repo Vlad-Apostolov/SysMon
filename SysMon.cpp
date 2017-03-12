@@ -22,18 +22,30 @@ SysMon& SysMon::instance()
 	return inst;
 }
 
+void SysMon::setSleepTime(int minutes)
+{
+	// message format "$XX,XX\0"
+	std::stringstream os;
+	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_RPI_SLEEP_TIME << ',';
+	os << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << minutes << '\0';
+	const char* message = os.str().c_str();
+	sendMessage(message);
+}
+
 void SysMon::rebootRouter()
 {
 	_pduControl &= ~PDU_ROUTER_ON;
 	// message format "$XX,XX\0"
 	std::stringstream os;
-	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_PDU_CONTROL << ',' << _pduControl << '\0';
+	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_PDU_CONTROL << ',';
+	os << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << _pduControl << '\0';
 	const char* message = os.str().c_str();
 	sendMessage(message);
 	_pduControl |= PDU_ROUTER_ON;
 	os.str("");
 	os.clear();
-	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_PDU_CONTROL << ',' << _pduControl << '\0';
+	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_PDU_CONTROL << ',';
+	os << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << _pduControl << '\0';
 	message = os.str().c_str();
 	sendMessage(message);
 }
@@ -57,5 +69,6 @@ void SysMon::sendMessage(const char* message)
 	if (write(i2cFd, message, length) != length) {
 		LOG_ERROR << "Failed to write to the i2c bus";
 	}
+	close(i2cFd);
 }
 

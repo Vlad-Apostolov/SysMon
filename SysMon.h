@@ -13,10 +13,11 @@
 class SysMon {
 public:
 	static SysMon& instance();
+	void setSleepTime(int minutes);
 	void rebootRouter();
 
 private:
-#define ARDUINO_I2C_SLAVE_ADDRESS	100
+#define ARDUINO_I2C_SLAVE_ADDRESS	55
 #define MESSAGE_LENGHT				7
 
 #define PDU_ROUTER_ON				0x0001
