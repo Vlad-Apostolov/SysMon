@@ -15,9 +15,15 @@
 #include <boost/asio.hpp>
 #include <boost/shared_ptr.hpp>
 #include <iostream>
+#include <sys/ioctl.h>
+#include <linux/i2c-dev.h>
+#include <unistd.h>
+#include <linux/reboot.h>
+#include <sys/reboot.h>
 
 #include "simpleLogger.h"
 #include "ping.h"
+#include "SysMon.h"
 
 using namespace std;
 using namespace boost::program_options;
@@ -121,9 +127,18 @@ int main(int argc, char *argv[])
 	}
 	catch (std::exception& e)
 	{
-		std::cerr << "Exception: " << e.what() << std::endl;
+		LOG_ERROR << "Exception: " << e.what();
 	}
 
 	LOG_TRACE << "ping replies: " << pingReplies;
+
+	if (!pingReplies)
+		SysMon::instance().rebootRouter();
+
+	sync();
+
+	LOG_TRACE << "Shutting down now!";
+	reboot(LINUX_REBOOT_CMD_POWER_OFF);
+
 	return EXIT_SUCCESS;
 }
