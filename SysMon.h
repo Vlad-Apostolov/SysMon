@@ -13,7 +13,8 @@
 class SysMon {
 public:
 	static SysMon& instance();
-	void setSleepTime(int minutes);
+	void setRpiSleepTime(int minutes);
+	void setSpiSleepTime(int minutes);
 	void rebootRouter();
 
 private:
@@ -29,6 +30,7 @@ private:
 	enum MessageTag {
 		TAG_PDU_CONTROL,
 		TAG_RPI_SLEEP_TIME,
+		TAG_SPI_SLEEP_TIME
 	};
 
 	SysMon() :

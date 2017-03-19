@@ -22,11 +22,21 @@ SysMon& SysMon::instance()
 	return inst;
 }
 
-void SysMon::setSleepTime(int minutes)
+void SysMon::setRpiSleepTime(int minutes)
 {
 	// message format "$XX,XX\0"
 	std::stringstream os;
 	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_RPI_SLEEP_TIME << ',';
+	os << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << minutes << '\0';
+	const char* message = os.str().c_str();
+	sendMessage(message);
+}
+
+void SysMon::setSpiSleepTime(int minutes)
+{
+	// message format "$XX,XX\0"
+	std::stringstream os;
+	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_SPI_SLEEP_TIME << ',';
 	os << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << minutes << '\0';
 	const char* message = os.str().c_str();
 	sendMessage(message);

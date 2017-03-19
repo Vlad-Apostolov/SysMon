@@ -136,8 +136,8 @@ int main(int argc, char *argv[])
 
 	LOG_TRACE << "ping replies: " << pingReplies;
 
-	SysMon::instance().setSleepTime(rpiSleepTime);
-	SysMon::instance().setSleepTime(spiSleepTime);
+	SysMon::instance().setRpiSleepTime(rpiSleepTime);
+	SysMon::instance().setSpiSleepTime(spiSleepTime);
 	if (!pingReplies)
 		SysMon::instance().rebootRouter();
 
