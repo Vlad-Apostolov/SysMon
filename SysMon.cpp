@@ -64,6 +64,7 @@ void SysMon::sendMessage(const char* message)
 {
 	char *filename = (char*)"/dev/i2c-1";
 	int i2cFd;
+	int length = strlen(message) + 1;
 
 	if ((i2cFd = open(filename, O_RDWR)) < 0) {
 		LOG_ERROR << "Failed to open the i2c bus";
@@ -72,13 +73,38 @@ void SysMon::sendMessage(const char* message)
 
 	if (ioctl(i2cFd, I2C_SLAVE, ARDUINO_I2C_SLAVE_ADDRESS) < 0) {
 		LOG_ERROR << "Failed to acquire i2c bus access";
-		return;
+		goto sendMessageEnd;
 	}
 
-	int length = strlen(message) + 1;
 	if (write(i2cFd, message, length) != length) {
 		LOG_ERROR << "Failed to write to the i2c bus";
 	}
+sendMessageEnd:
 	close(i2cFd);
+}
+
+SysMon::SolarChargerData& SysMon::getSolarChargerData()
+{
+	char *filename = (char*)"/dev/i2c-1";
+	int i2cFd;
+	int length = sizeof(SolarChargerData);
+	memset(&_solarChargerData, 0, length);
+
+	if ((i2cFd = open(filename, O_RDWR)) < 0) {
+		LOG_ERROR << "Failed to open the i2c bus";
+		return _solarChargerData;
+	}
+
+	if (ioctl(i2cFd, I2C_SLAVE, ARDUINO_I2C_SLAVE_ADDRESS) < 0) {
+		LOG_ERROR << "Failed to acquire i2c bus access";
+		goto getSolarChargerDataEnd;
+	}
+
+	if (read(i2cFd, &_solarChargerData, length) != length) {
+		LOG_ERROR << "Failed to read from the i2c bus";
+	}
+getSolarChargerDataEnd:
+	close(i2cFd);
+	return _solarChargerData;
 }
 

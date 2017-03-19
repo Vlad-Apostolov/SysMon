@@ -12,9 +12,17 @@
 
 class SysMon {
 public:
+	struct SolarChargerData {
+		uint32_t time;
+		uint16_t chargerVoltage;
+		uint16_t chargerCurrent;
+		uint16_t chargerPower;
+	};
+
 	static SysMon& instance();
 	void setRpiSleepTime(int minutes);
 	void setSpiSleepTime(int minutes);
+	SolarChargerData& getSolarChargerData();
 	void rebootRouter();
 
 private:
@@ -43,6 +51,7 @@ private:
 	void sendMessage(const char* message);
 
 	uint16_t _pduControl;
+	SolarChargerData _solarChargerData;
 };
 
 #endif /* SYSMON_H_ */

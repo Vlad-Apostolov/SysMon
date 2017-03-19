@@ -113,6 +113,11 @@ static void parseCommandLine(int argc, char *argv[])
     }
 }
 
+void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
+{
+	// TODO: publish data on the web
+}
+
 int main(int argc, char *argv[])
 {
 	std::size_t pingReplies = 0;
@@ -138,13 +143,24 @@ int main(int argc, char *argv[])
 
 	SysMon::instance().setRpiSleepTime(rpiSleepTime);
 	SysMon::instance().setSpiSleepTime(spiSleepTime);
+	std::list<SysMon::SolarChargerData> solarChargerDataList;
+	for(;;) {
+		SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
+		if (solarChargerData.time == 0)
+			break;
+		solarChargerDataList.push_back(solarChargerData);
+	}
+	if (!solarChargerDataList.empty()) {
+		for (auto solarChargerData : solarChargerDataList)
+			publishSolarChargerData(solarChargerData);
+	}
 	if (!pingReplies)
 		SysMon::instance().rebootRouter();
 
 	sync();
 
 	LOG_TRACE << "Shutting down now!";
-	//reboot(LINUX_REBOOT_CMD_POWER_OFF);
+	reboot(LINUX_REBOOT_CMD_POWER_OFF);
 
 	return EXIT_SUCCESS;
 }
