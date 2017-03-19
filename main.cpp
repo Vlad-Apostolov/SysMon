@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 	sync();
 
 	LOG_TRACE << "Shutting down now!";
-	reboot(LINUX_REBOOT_CMD_POWER_OFF);
+	//reboot(LINUX_REBOOT_CMD_POWER_OFF);
 
 	return EXIT_SUCCESS;
 }
