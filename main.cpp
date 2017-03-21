@@ -32,17 +32,20 @@ using namespace boost::filesystem;
 
 // RtiProxyClient logging control variables
 static bool consoleLogging = false;			// when set to true, enables logging to console
+static bool shutdownRPi = false;			// when set to true, shut down Raspberry Pi
 static string logLevel = "info";			// RtiProxyClient logging threshold level: trace|debug|info|warning|error|fatal
 static string logFileName = "";				// non empty string enables logging into a file
 static string pingServerName = "";
 static variables_map variablesMap;
 static options_description optionsDescription{"Options"};
 static std::size_t pingRetries = 1;
-static int rpiSleepTime = 10;
-static int spiSleepTime = 1;
+static int rpiSleepTime = 30;
+static int spiSleepTime = 5;
+static string PvoutputApikey;
+int PvoutputSystemId;
 
 
-static shared_ptr<boost::asio::io_service> processingScheduler;				// processing scheduler
+static shared_ptr<boost::asio::io_service> processingScheduler;	// processing scheduler
 
 static void stopProcessing(int dummy)
 {
@@ -82,11 +85,14 @@ static void parseCommandLine(int argc, char *argv[])
 			("help,h", "Help screen")
 			("logLevel,l", value<string>(&logLevel)->default_value("info"), "Logging severity threshold: trace|debug|info|warning|error|fatal")
 			("consoleLog,c", "Enable console logging")
+			("shutdownRPi", "Shutdown Raspberry Pi")
 			("logFileName,f", value<string>(&logFileName)->default_value(""), "File name for logging")
 			("pingServerName,p", value<string>(&pingServerName)->required(), "Server name to ping")
 			("pingRetries,r", value<std::size_t>(&pingRetries)->default_value(1), "Max number of ping requests before giving up")
-			("rpiSleepTime,s", value<int>(&rpiSleepTime)->default_value(10), "Number of minutes for Raspberry Pi to sleep after shutdown")
-			("spiSleepTime", value<int>(&spiSleepTime)->default_value(1), "Number of minutes for Sleepy Pi to sleep");
+			("rpiSleepTime,s", value<int>(&rpiSleepTime)->default_value(30), "Number of minutes for Raspberry Pi to sleep after shutdown")
+			("spiSleepTime", value<int>(&spiSleepTime)->default_value(5), "Number of minutes for Sleepy Pi to sleep")
+			("PvoutputApikey,a", value<string>(&PvoutputApikey)->required(), "X-Pvoutput-Apikey")
+			("PvoutputSystemId,i", value<int>(&PvoutputSystemId)->required(), "X-Pvoutput-SystemId");
 
 
 		command_line_parser commandLineParser{argc, argv};
@@ -103,6 +109,9 @@ static void parseCommandLine(int argc, char *argv[])
 
 		if (variablesMap.count("consoleLog"))
 			consoleLogging = true;
+
+		if (variablesMap.count("shutdownRPi"))
+			shutdownRPi = true;
 	} catch (const boost::program_options::required_option& e) {
         if (variablesMap.count("help")) {
             cout << optionsDescription << endl;
@@ -115,7 +124,28 @@ static void parseCommandLine(int argc, char *argv[])
 
 void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 {
-	// TODO: publish data on the web
+#define MAX_COMMAND_LENGHT 1000
+	tm* timeInfo = localtime((time_t*)&solarChargerData.time);
+	int powerGeneration = round(((double)solarChargerData.chargerCurrent * (double)solarChargerData.chargerVoltage)/1000.0);
+	int energyGeneration = round((double)powerGeneration * ((double)spiSleepTime/60.0));
+	int powerConsumption = round(((double)solarChargerData.loadCurrent * (double)solarChargerData.loadVoltage)/1000.0);
+	int energyConsumption = round((double)powerConsumption * ((double)spiSleepTime/60.0));
+	double temperature = (double)solarChargerData.chargerTemperature/100.0;
+	double voltage = (double)solarChargerData.panelVoltage/100.0;
+	char command[MAX_COMMAND_LENGHT];
+	snprintf(command, MAX_COMMAND_LENGHT,
+		"curl -d \"d=%4u%02u%02u\" -d \"t=%02u:%02u\" "
+		"-d \"v1=%d\" -d \"v2=%d\" "
+		"-d \"v3=%d\" -d \"v4=%d\" "
+		"-d \"v5=%3.1f\" -d \"v6=%4.1f\" "
+		"-H \"X-Pvoutput-Apikey: %s\" -H \"X-Pvoutput-SystemId: %d\" "
+		"http://pvoutput.org/service/r2/addstatus.jsp",
+		timeInfo->tm_year+1900, timeInfo->tm_mon+1, timeInfo->tm_mday, timeInfo->tm_hour, timeInfo->tm_min,
+		energyGeneration, powerGeneration,
+		energyConsumption, powerConsumption,
+		temperature, voltage,
+		PvoutputApikey.c_str(), PvoutputSystemId);
+	system(command);
 }
 
 int main(int argc, char *argv[])
@@ -143,24 +173,22 @@ int main(int argc, char *argv[])
 
 	SysMon::instance().setRpiSleepTime(rpiSleepTime);
 	SysMon::instance().setSpiSleepTime(spiSleepTime);
-	std::list<SysMon::SolarChargerData> solarChargerDataList;
+
 	for(;;) {
 		SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
 		if (solarChargerData.time == 0)
 			break;
-		solarChargerDataList.push_back(solarChargerData);
+		publishSolarChargerData(solarChargerData);
 	}
-	if (!solarChargerDataList.empty()) {
-		for (auto solarChargerData : solarChargerDataList)
-			publishSolarChargerData(solarChargerData);
-	}
+
 	if (!pingReplies)
 		SysMon::instance().rebootRouter();
 
-	sync();
-
-	LOG_TRACE << "Shutting down now!";
-	reboot(LINUX_REBOOT_CMD_POWER_OFF);
+	if (shutdownRPi) {
+		sync();
+		LOG_TRACE << "Shutting down now!";
+		reboot(LINUX_REBOOT_CMD_POWER_OFF);
+	}
 
 	return EXIT_SUCCESS;
 }
