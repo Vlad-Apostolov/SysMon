@@ -174,14 +174,14 @@ int main(int argc, char *argv[])
 	SysMon::instance().setRpiSleepTime(rpiSleepTime);
 	SysMon::instance().setSpiSleepTime(spiSleepTime);
 
-	for(;;) {
-		SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
-		if (solarChargerData.time == 0)
-			break;
-		publishSolarChargerData(solarChargerData);
-	}
-
-	if (!pingReplies)
+	if (pingReplies) {
+		for(;;) {
+			SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
+			if (solarChargerData.time == 0)
+				break;
+			publishSolarChargerData(solarChargerData);
+		}
+	} else
 		SysMon::instance().rebootRouter();
 
 	if (shutdownRPi) {
