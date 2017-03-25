@@ -24,6 +24,7 @@
 #include "simpleLogger.h"
 #include "ping.h"
 #include "SysMon.h"
+#include "Xively.h"
 
 using namespace std;
 using namespace boost::program_options;
@@ -42,6 +43,10 @@ static std::size_t pingRetries = 1;
 static int rpiSleepTime = 30;
 static int spiSleepTime = 5;
 static string PvoutputApikey;
+static string xivelyAccountId;
+static string xivelyDeviceId;
+static string xivelyPassword;
+static string xivelyChannel;
 int PvoutputSystemId;
 
 
@@ -92,7 +97,11 @@ static void parseCommandLine(int argc, char *argv[])
 			("rpiSleepTime,s", value<int>(&rpiSleepTime)->default_value(30), "Number of minutes for Raspberry Pi to sleep after shutdown")
 			("spiSleepTime", value<int>(&spiSleepTime)->default_value(5), "Number of minutes for Sleepy Pi to sleep")
 			("PvoutputApikey,a", value<string>(&PvoutputApikey)->required(), "X-Pvoutput-Apikey")
-			("PvoutputSystemId,i", value<int>(&PvoutputSystemId)->required(), "X-Pvoutput-SystemId");
+			("PvoutputSystemId,i", value<int>(&PvoutputSystemId)->required(), "X-Pvoutput-SystemId")
+			("xivelyAccountId,", value<string>(&xivelyAccountId)->required(), "xivelyAccountId")
+			("xivelyDeviceId,", value<string>(&xivelyDeviceId)->required(), "xivelyDeviceId")
+			("xivelyPassword,", value<string>(&xivelyPassword)->required(), "xivelyPassword")
+			("xivelyChannel,", value<string>(&xivelyChannel)->required(), "xivelyChannel");
 
 
 		command_line_parser commandLineParser{argc, argv};
@@ -175,12 +184,15 @@ int main(int argc, char *argv[])
 	SysMon::instance().setSpiSleepTime(spiSleepTime);
 
 	if (pingReplies) {
+		Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword, xivelyChannel);
 		for(;;) {
 			SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
 			if (solarChargerData.time == 0)
 				break;
 			publishSolarChargerData(solarChargerData);
+			Xively::instance().publish(solarChargerData);
 		}
+		Xively::instance().join();
 	} else
 		SysMon::instance().rebootRouter();
 

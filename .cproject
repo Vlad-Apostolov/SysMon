@@ -37,6 +37,7 @@
 								<option id="gnu.cpp.compiler.option.include.paths.1716178315" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${BOOST_PATH}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${BOOST_PATH}/libs/asio/example/cpp03/icmp&quot;"/>
+									<listOptionValue builtIn="false" value="/home/vlad/xively/xively-client-c-master/include"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.other.other.355461077" name="Other flags" superClass="gnu.cpp.compiler.option.other.other" value="-c -fmessage-length=0 -std=c++11" valueType="string"/>
 								<option id="gnu.cpp.compiler.option.preprocessor.def.948138517" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def"/>
@@ -47,6 +48,8 @@
 							<tool id="cdt.managedbuild.tool.gnu.cross.cpp.linker.150982891" name="Cross G++ Linker" superClass="cdt.managedbuild.tool.gnu.cross.cpp.linker">
 								<option id="gnu.cpp.link.option.paths.726336098" name="Library search path (-L)" superClass="gnu.cpp.link.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="&quot;${BOOST_PATH}/stage/lib&quot;"/>
+									<listOptionValue builtIn="false" value="/home/vlad/xively/xively-client-c-master/bin/linux"/>
+									<listOptionValue builtIn="false" value="/home/vlad/xively/wolfssl-3.10.2/src/.libs"/>
 								</option>
 								<option id="gnu.cpp.link.option.libs.2136053970" name="Libraries (-l)" superClass="gnu.cpp.link.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="boost_chrono"/>
@@ -58,8 +61,10 @@
 									<listOptionValue builtIn="false" value="boost_system"/>
 									<listOptionValue builtIn="false" value="boost_program_options"/>
 									<listOptionValue builtIn="false" value="boost_log"/>
-									<listOptionValue builtIn="false" value="rt"/>
 									<listOptionValue builtIn="false" value="boost_thread"/>
+									<listOptionValue builtIn="false" value="rt"/>
+									<listOptionValue builtIn="false" value="xively"/>
+									<listOptionValue builtIn="false" value="wolfssl"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.linker.input.1269922890" superClass="cdt.managedbuild.tool.gnu.cpp.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
