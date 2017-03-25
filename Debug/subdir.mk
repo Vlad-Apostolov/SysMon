@@ -5,18 +5,21 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
 ../SysMon.cpp \
+../Xively.cpp \
 ../main.cpp \
 ../ping.cpp \
 ../simpleLogger.cpp 
 
 OBJS += \
 ./SysMon.o \
+./Xively.o \
 ./main.o \
 ./ping.o \
 ./simpleLogger.o 
 
 CPP_DEPS += \
 ./SysMon.d \
+./Xively.d \
 ./main.d \
 ./ping.d \
 ./simpleLogger.d 
@@ -26,7 +29,7 @@ CPP_DEPS += \
 %.o: ../%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: Cross G++ Compiler'
-	arm-linux-gnueabihf-g++ -I"/home/vlad/boost/boost_1_63_0" -I"/home/vlad/boost/boost_1_63_0/libs/asio/example/cpp03/icmp" -O0 -g3 -Wall -c -fmessage-length=0 -std=c++11 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	arm-linux-gnueabihf-g++ -I"/home/vlad/boost/boost_1_63_0" -I"/home/vlad/boost/boost_1_63_0/libs/asio/example/cpp03/icmp" -I/home/vlad/xively/xively-client-c-master/include -O0 -g3 -Wall -c -fmessage-length=0 -std=c++11 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 
