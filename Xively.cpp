@@ -36,8 +36,10 @@ bool Xively::init(std::string accountId, std::string deviceId, std::string passw
 
 void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, void*)
 {
-	if (Xively::instance()._solarChargerDataList.empty())
+	if (Xively::instance()._solarChargerDataList.empty()) {
+		xi_events_stop();
 		return;
+	}
 
 	auto& solarChargerData = Xively::instance()._solarChargerDataList.front();
 	snprintf(Xively::instance()._message, MAX_MESSAGE_SIZE,
@@ -59,11 +61,15 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
     		   Xively::instance()._channel.c_str(),
     		   Xively::instance()._message,
     		   XI_MQTT_QOS_AT_LEAST_ONCE,
-    		   XI_MQTT_RETAIN_FALSE,
+    		   XI_MQTT_RETAIN_TRUE,
     		   NULL,
     		   NULL);
-	if (!Xively::instance()._solarChargerDataList.empty())
+	if (!Xively::instance()._solarChargerDataList.empty()) {
 		xi_schedule_timed_task(Xively::instance()._context, Xively::publish, 5, 0, NULL);
+		return;
+	}
+
+	xi_events_stop();
 }
 
 void Xively::connect()

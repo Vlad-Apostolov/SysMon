@@ -192,6 +192,21 @@ int main(int argc, char *argv[])
 			publishSolarChargerData(solarChargerData);
 			Xively::instance().publish(solarChargerData);
 		}
+#if 0
+		SysMon::SolarChargerData solarChargerTestData;
+		solarChargerTestData.chargerCurrent = 12;
+		solarChargerTestData.chargerPowerToday = 254;
+		solarChargerTestData.chargerTemperature = 3215;
+		solarChargerTestData.chargerVoltage = 1450;
+		solarChargerTestData.loadCurrent = 8;
+		solarChargerTestData.loadVoltage = 1272;
+		solarChargerTestData.panelCurrent = 25;
+		solarChargerTestData.panelPower = 10000;
+		solarChargerTestData.panelVoltage = 10000;
+		solarChargerTestData.time = time(NULL);
+		publishSolarChargerData(solarChargerTestData);
+		Xively::instance().publish(solarChargerTestData);
+#endif
 		Xively::instance().join();
 	} else
 		SysMon::instance().rebootRouter();
