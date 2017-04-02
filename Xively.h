@@ -26,15 +26,16 @@ public:
 	static Xively& instance();
 	bool init(std::string accountId, std::string deviceId, std::string password, std::string channel);
 	void publish(SysMon::SolarChargerData& solarChargerData) { _solarChargerDataList.push_back(solarChargerData); }
-	static void publish(const xi_context_handle_t, const xi_timed_task_handle_t, void*);
 	void join();
-	void shutdown();
 
 private:
 #define CONNECTION_TIMEOUT	10
 #define KEEPALIVE_TIMEOUT	20
 #define MAX_MESSAGE_SIZE	1024
 	void connect();
+	void subscribe();
+	static void publish(const xi_context_handle_t, const xi_timed_task_handle_t, void*);
+	void shutdown();
 	Xively() :
 		_context(XI_INVALID_CONTEXT_HANDLE)
 	{

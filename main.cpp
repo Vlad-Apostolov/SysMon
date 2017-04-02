@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
 			publishSolarChargerData(solarChargerData);
 			Xively::instance().publish(solarChargerData);
 		}
-#if 0
+#if 1
 		SysMon::SolarChargerData solarChargerTestData;
 		solarChargerTestData.chargerCurrent = 12;
 		solarChargerTestData.chargerPowerToday = 254;
