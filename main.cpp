@@ -37,8 +37,6 @@ static bool shutdownRPi = false;			// when set to true, shut down Raspberry Pi
 static string logLevel = "info";			// RtiProxyClient logging threshold level: trace|debug|info|warning|error|fatal
 static string logFileName = "";				// non empty string enables logging into a file
 static string pingServerName = "";
-static variables_map variablesMap;
-static options_description optionsDescription{"Options"};
 static std::size_t pingRetries = 1;
 static int rpiSleepTime = 30;
 static int spiSleepTime = 5;
@@ -46,7 +44,6 @@ static string PvoutputApikey;
 static string xivelyAccountId;
 static string xivelyDeviceId;
 static string xivelyPassword;
-static string xivelyChannel;
 int PvoutputSystemId;
 
 
@@ -85,6 +82,8 @@ static void configureLogger()
 
 static void parseCommandLine(int argc, char *argv[])
 {
+	options_description optionsDescription{"Options"};
+	variables_map variablesMap;
 	try	{
 		optionsDescription.add_options()
 			("help,h", "Help screen")
@@ -92,35 +91,32 @@ static void parseCommandLine(int argc, char *argv[])
 			("consoleLog,c", "Enable console logging")
 			("shutdownRPi", "Shutdown Raspberry Pi")
 			("logFileName,f", value<string>(&logFileName)->default_value(""), "File name for logging")
-			("pingServerName,p", value<string>(&pingServerName)->required(), "Server name to ping")
+			("pingServerName,p", value<string>(&pingServerName), "Server name to ping")
 			("pingRetries,r", value<std::size_t>(&pingRetries)->default_value(1), "Max number of ping requests before giving up")
 			("rpiSleepTime,s", value<int>(&rpiSleepTime)->default_value(30), "Number of minutes for Raspberry Pi to sleep after shutdown")
 			("spiSleepTime", value<int>(&spiSleepTime)->default_value(5), "Number of minutes for Sleepy Pi to sleep")
-			("PvoutputApikey,a", value<string>(&PvoutputApikey)->required(), "X-Pvoutput-Apikey")
-			("PvoutputSystemId,i", value<int>(&PvoutputSystemId)->required(), "X-Pvoutput-SystemId")
-			("xivelyAccountId,", value<string>(&xivelyAccountId)->required(), "xivelyAccountId")
-			("xivelyDeviceId,", value<string>(&xivelyDeviceId)->required(), "xivelyDeviceId")
-			("xivelyPassword,", value<string>(&xivelyPassword)->required(), "xivelyPassword")
-			("xivelyChannel,", value<string>(&xivelyChannel)->required(), "xivelyChannel");
+			("PvoutputApikey,a", value<string>(&PvoutputApikey), "X-Pvoutput-Apikey")
+			("PvoutputSystemId,i", value<int>(&PvoutputSystemId), "X-Pvoutput-SystemId")
+			("xivelyAccountId,", value<string>(&xivelyAccountId), "xivelyAccountId")
+			("xivelyDeviceId,", value<string>(&xivelyDeviceId), "xivelyDeviceId")
+			("xivelyPassword,", value<string>(&xivelyPassword), "xivelyPassword")
+			("config", value<std::string>(), "Config file");
 
-
-		command_line_parser commandLineParser{argc, argv};
-		commandLineParser.options(optionsDescription);
-		parsed_options parsedOptions = commandLineParser.run();
-
-		store(parsedOptions, variablesMap);
-		notify(variablesMap);
-
+	    store(parse_command_line(argc, argv, optionsDescription), variablesMap);
 		if (variablesMap.count("help")) {
 			cout << optionsDescription << endl;
 			exit(EXIT_SUCCESS);
 		}
-
 		if (variablesMap.count("consoleLog"))
 			consoleLogging = true;
-
 		if (variablesMap.count("shutdownRPi"))
 			shutdownRPi = true;
+		if (variablesMap.count("config")) {
+			std::ifstream configStream {variablesMap["config"].as<std::string>().c_str()};
+			if (configStream)
+				store(parse_config_file(configStream, optionsDescription), variablesMap);
+		}
+		notify(variablesMap);
 	} catch (const boost::program_options::required_option& e) {
         if (variablesMap.count("help")) {
             cout << optionsDescription << endl;
@@ -180,11 +176,8 @@ int main(int argc, char *argv[])
 
 	LOG_TRACE << "ping replies: " << pingReplies;
 
-	SysMon::instance().setRpiSleepTime(rpiSleepTime);
-	SysMon::instance().setSpiSleepTime(spiSleepTime);
-
 	if (pingReplies) {
-		Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword, xivelyChannel);
+		Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword);
 		for(;;) {
 			SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
 			if (solarChargerData.time == 0)
@@ -192,7 +185,7 @@ int main(int argc, char *argv[])
 			publishSolarChargerData(solarChargerData);
 			Xively::instance().publish(solarChargerData);
 		}
-#if 1
+#if 0
 		SysMon::SolarChargerData solarChargerTestData;
 		solarChargerTestData.chargerCurrent = 12;
 		solarChargerTestData.chargerPowerToday = 254;
@@ -208,8 +201,12 @@ int main(int argc, char *argv[])
 		Xively::instance().publish(solarChargerTestData);
 #endif
 		Xively::instance().join();
+		parseCommandLine(argc, argv);
 	} else
 		SysMon::instance().rebootRouter();
+
+	SysMon::instance().setRpiSleepTime(rpiSleepTime);
+	SysMon::instance().setSpiSleepTime(spiSleepTime);
 
 	if (shutdownRPi) {
 		sync();

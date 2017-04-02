@@ -1,0 +1,8 @@
+pingServerName=google.com
+rpiSleepTime=30
+spiSleepTime=5
+PvoutputApikey=8b32780724fa94769daf68ad7c75f3c57a4aa82c
+PvoutputSystemId=51030
+xivelyAccountId=c7d74ec3-992e-4479-a07f-9ee8455e7d5e
+xivelyDeviceId=363f56e0-966d-45cd-a338-8b70e0feda43
+xivelyPassword=+uSCBk715laNNZFvlMJlGzvqYL3p+2yVfugL75u5m1c=

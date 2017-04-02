@@ -10,6 +10,7 @@
 
 #include <string>
 #include <list>
+#include <vector>
 
 #include "xively.h"
 #include "SysMon.h"
@@ -20,11 +21,12 @@ public:
 		MC_1,
 		MC_2,
 		MC_3,
-		MC_LOG
+		MC_LOG,
+		MC_COUNT
 	};
 	static Xively& instance(const char* accountId, const char* deviceId, const char* password);
 	static Xively& instance();
-	bool init(std::string accountId, std::string deviceId, std::string password, std::string channel);
+	bool init(std::string accountId, std::string deviceId, std::string password);
 	void publish(SysMon::SolarChargerData& solarChargerData) { _solarChargerDataList.push_back(solarChargerData); }
 	void join();
 
@@ -46,9 +48,9 @@ private:
 	std::string _accountId;
 	std::string _deviceId;
 	std::string _password;
-	std::string _channel;
 	std::list<SysMon::SolarChargerData> _solarChargerDataList;
 	char _message[MAX_MESSAGE_SIZE];
+	std::vector<std::string> _channel;
 };
 
 #endif /* XIVELY_H_ */

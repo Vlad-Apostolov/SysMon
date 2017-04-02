@@ -5,6 +5,9 @@
  *      Author: vlad
  */
 
+#include <sstream>
+#include <fstream>
+
 #include "Xively.h"
 #include "simpleLogger.h"
 
@@ -16,14 +19,25 @@ Xively& Xively::instance()
 	return *inst;
 }
 
-bool Xively::init(std::string accountId, std::string deviceId, std::string password, std::string channel)
+bool Xively::init(std::string accountId, std::string deviceId, std::string password)
 {
 	bool result = false;
 
 	_accountId = accountId;
 	_deviceId = deviceId;
 	_password = password;
-	_channel = channel;
+	std::stringstream os;
+	os << "xi/blue/v1/" << _accountId << "/d/" << deviceId << "/Default Channel 1";
+	_channel.push_back(os.str());
+	os.str("");	os.clear();
+	os << "xi/blue/v1/" << _accountId << "/d/" << deviceId << "/Default Channel 2";
+	_channel.push_back(os.str());
+	os.str("");	os.clear();
+	os << "xi/blue/v1/" << _accountId << "/d/" << deviceId << "/Default Channel 3";
+	_channel.push_back(os.str());
+	os.str("");	os.clear();
+	os << "xi/blue/v1/" << _accountId << "/d/" << deviceId << "/_log";
+	_channel.push_back(os.str());
 	if (xi_initialize(_accountId.c_str(), _deviceId.c_str(), NULL) == XI_STATE_OK) {
 		if ((_context = xi_create_context()) >  XI_INVALID_CONTEXT_HANDLE)
 			result = true;
@@ -36,7 +50,7 @@ bool Xively::init(std::string accountId, std::string deviceId, std::string passw
 
 void Xively::subscribe()
 {
-    xi_subscribe(_context, _channel.c_str(), XI_MQTT_QOS_AT_LEAST_ONCE, [](xi_context_handle_t, xi_sub_call_type_t callType, const xi_sub_call_params_t* const params, xi_state_t, void*)
+    xi_subscribe(_context, _channel[MC_1].c_str(), XI_MQTT_QOS_AT_LEAST_ONCE, [](xi_context_handle_t, xi_sub_call_type_t callType, const xi_sub_call_params_t* const params, xi_state_t, void*)
 	{
         switch (callType)
         {
@@ -47,8 +61,14 @@ void Xively::subscribe()
                 	LOG_INFO << __PRETTY_FUNCTION__ << " Subscription for topic " << params->suback.topic << " successful";
                 break;
             case XI_SUB_CALL_MESSAGE:
-            	LOG_INFO << __PRETTY_FUNCTION__ << " Received message: " << ((char*)(params->message.temporary_payload_data));
+            {
+            	LOG_INFO << __PRETTY_FUNCTION__ << " Received message: \n" << ((char*)(params->message.temporary_payload_data));
+				std::ofstream configFile;
+				configFile.open ("config.txt");
+				configFile << ((char*)(params->message.temporary_payload_data));
+				configFile.close();
             	xi_events_stop();
+            }
                 break;
             default:
                 break;
@@ -80,7 +100,7 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 		);
 	Xively::instance()._solarChargerDataList.pop_front();
     xi_publish(Xively::instance()._context,
-    		   Xively::instance()._channel.c_str(),
+    		   Xively::instance()._channel[MC_2].c_str(),
     		   Xively::instance()._message,
     		   XI_MQTT_QOS_AT_LEAST_ONCE,
     		   XI_MQTT_RETAIN_TRUE,
