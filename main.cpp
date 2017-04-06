@@ -189,7 +189,6 @@ int main(int argc, char *argv[])
 		SysMon::SolarChargerData solarChargerTestData;
 		solarChargerTestData.chargerCurrent = 12;
 		solarChargerTestData.chargerPowerToday = 254;
-		solarChargerTestData.chargerTemperature = 3215;
 		solarChargerTestData.chargerVoltage = 1450;
 		solarChargerTestData.loadCurrent = 8;
 		solarChargerTestData.loadVoltage = 1272;
@@ -197,6 +196,7 @@ int main(int argc, char *argv[])
 		solarChargerTestData.panelPower = 10000;
 		solarChargerTestData.panelVoltage = 10000;
 		solarChargerTestData.time = time(NULL);
+		solarChargerTestData.cpuTemperature = 32;
 		publishSolarChargerData(solarChargerTestData);
 		Xively::instance().publish(solarChargerTestData);
 #endif
