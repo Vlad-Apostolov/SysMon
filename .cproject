@@ -49,7 +49,7 @@
 								<option id="gnu.cpp.link.option.paths.726336098" name="Library search path (-L)" superClass="gnu.cpp.link.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="&quot;${BOOST_PATH}/stage/lib&quot;"/>
 									<listOptionValue builtIn="false" value="/home/vlad/xively/xively-client-c-master/bin/linux"/>
-									<listOptionValue builtIn="false" value="/home/vlad/xively/wolfssl-3.10.2/src/.libs"/>
+									<listOptionValue builtIn="false" value="/home/vlad/xively/xively-client-c-master/src/import/tls/wolfssl/src/.libs"/>
 								</option>
 								<option id="gnu.cpp.link.option.libs.2136053970" name="Libraries (-l)" superClass="gnu.cpp.link.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="boost_chrono"/>

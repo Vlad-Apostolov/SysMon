@@ -108,3 +108,16 @@ getSolarChargerDataEnd:
 	return _solarChargerData;
 }
 
+int8_t SysMon::getCpuTemperature()
+{
+	FILE *temperatureFile;
+	temperatureFile = fopen ("/sys/class/thermal/thermal_zone0/temp", "r");
+	if (temperatureFile == NULL)
+		return 0;
+	double temperature;
+	fscanf (temperatureFile, "%lf", &temperature);
+	fclose (temperatureFile);
+	temperature /= 1000;
+	return round(temperature);
+}
+

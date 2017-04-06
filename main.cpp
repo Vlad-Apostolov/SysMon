@@ -135,7 +135,7 @@ void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 	int energyGeneration = round((double)powerGeneration * ((double)spiSleepTime/60.0));
 	int powerConsumption = round(((double)solarChargerData.loadCurrent * (double)solarChargerData.loadVoltage)/1000.0);
 	int energyConsumption = round((double)powerConsumption * ((double)spiSleepTime/60.0));
-	double temperature = (double)solarChargerData.chargerTemperature/100.0;
+	double temperature = (double)solarChargerData.cpuTemperature;
 	double voltage = (double)solarChargerData.panelVoltage/100.0;
 	char command[MAX_COMMAND_LENGHT];
 	snprintf(command, MAX_COMMAND_LENGHT,

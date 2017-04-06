@@ -17,12 +17,12 @@ public:
 		uint16_t chargerVoltage;
 		uint16_t chargerCurrent;
 		uint16_t chargerPowerToday;
-		int16_t chargerTemperature;
 		uint16_t loadVoltage;
 		uint16_t loadCurrent;
 		uint16_t panelVoltage;
 		uint16_t panelCurrent;
 		uint32_t panelPower;
+		int8_t cpuTemperature;
 	};
 
 	static SysMon& instance();
@@ -30,6 +30,7 @@ public:
 	void setSpiSleepTime(int minutes);
 	SolarChargerData& getSolarChargerData();
 	void rebootRouter();
+	int8_t getCpuTemperature();
 
 private:
 #define ARDUINO_I2C_SLAVE_ADDRESS	55

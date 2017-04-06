@@ -85,18 +85,19 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 
 	auto& solarChargerData = Xively::instance()._solarChargerDataList.front();
 	snprintf(Xively::instance()._message, MAX_MESSAGE_SIZE,
-		"time: %d, chargerCurrent: %d, chargerPowerToday: %d, chargerTemperature: %d, chargerVoltage: %d, "
-		"loadVoltage: %d, loadCurrent: %d, panelVoltage: %d, panelCurrent: %d, panelPower: %d",
+		"time: %d, chargerCurrent: %d, chargerPowerToday: %d, chargerVoltage: %d, loadVoltage: %d, loadCurrent: %d, "
+		"panelVoltage: %d, panelCurrent: %d, panelPower: %d, SPiTemperature: %d, RPiTemperature: %d",
 		solarChargerData.time,
 		solarChargerData.chargerVoltage,
 		solarChargerData.chargerCurrent,
 		solarChargerData.chargerPowerToday,
-		solarChargerData.chargerTemperature,
 		solarChargerData.loadVoltage,
 		solarChargerData.loadCurrent,
 		solarChargerData.panelVoltage,
 		solarChargerData.panelCurrent,
-		solarChargerData.panelPower
+		solarChargerData.panelPower,
+		solarChargerData.cpuTemperature,
+		SysMon::instance().getCpuTemperature()
 		);
 	Xively::instance()._solarChargerDataList.pop_front();
     xi_publish(Xively::instance()._context,
