@@ -28,6 +28,8 @@ public:
 	static SysMon& instance();
 	void setRpiSleepTime(int minutes);
 	void setSpiSleepTime(int minutes);
+	void turnOnRelay(uint16_t relay) { _pduControl |= relay; }
+	void setPdu();
 	SolarChargerData& getSolarChargerData();
 	void rebootRouter();
 	int8_t getCpuTemperature();
@@ -36,11 +38,16 @@ private:
 #define ARDUINO_I2C_SLAVE_ADDRESS	55
 #define MESSAGE_LENGHT				7
 
-#define PDU_ROUTER_ON				0x0001
-#define PDU_CAM1_ON					0x0002
-#define PDU_CAM2_ON					0x0004
-#define PDU_CAM3_ON					0x0008
-#define PDU_CAM4_ON					0x0010
+#define PDU_RELAY1_ON				0x0001
+#define PDU_RELAY2_ON				0x0002
+#define PDU_RELAY3_ON				0x0004
+#define PDU_RELAY4_ON				0x0008
+#define PDU_RELAY5_ON				0x0010
+#define PDU_RELAY6_ON				0x0020
+#define PDU_RELAY7_ON				0x0040
+#define PDU_RELAY8_ON				0x0080
+#define PDU_ROUTER_ON				0x0100
+#define PDU_RPI_ON					0x0200
 
 	enum MessageTag {
 		TAG_PDU_CONTROL,
@@ -49,7 +56,7 @@ private:
 	};
 
 	SysMon() :
-		_pduControl(PDU_ROUTER_ON | PDU_CAM1_ON | PDU_CAM2_ON | PDU_CAM3_ON | PDU_CAM4_ON)
+		_pduControl(PDU_RPI_ON | PDU_ROUTER_ON)
 	{
 
 	}

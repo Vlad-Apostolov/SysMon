@@ -45,18 +45,18 @@ void SysMon::setSpiSleepTime(int minutes)
 void SysMon::rebootRouter()
 {
 	_pduControl &= ~PDU_ROUTER_ON;
+	setPdu();
+	_pduControl |= PDU_ROUTER_ON;
+	setPdu();
+}
+
+void SysMon::setPdu()
+{
 	// message format "$XX,XX\0"
 	std::stringstream os;
 	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_PDU_CONTROL << ',';
 	os << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << _pduControl << '\0';
 	const char* message = os.str().c_str();
-	sendMessage(message);
-	_pduControl |= PDU_ROUTER_ON;
-	os.str("");
-	os.clear();
-	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_PDU_CONTROL << ',';
-	os << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << _pduControl << '\0';
-	message = os.str().c_str();
 	sendMessage(message);
 }
 

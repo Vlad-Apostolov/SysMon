@@ -44,7 +44,15 @@ static string PvoutputApikey;
 static string xivelyAccountId;
 static string xivelyDeviceId;
 static string xivelyPassword;
-int PvoutputSystemId;
+static int PvoutputSystemId;
+static bool relay1 = false;
+static bool relay2 = false;
+static bool relay3 = false;
+static bool relay4 = false;
+static bool relay5 = false;
+static bool relay6 = false;
+static bool relay7 = false;
+static bool relay8 = false;
 
 
 static shared_ptr<boost::asio::io_service> processingScheduler;	// processing scheduler
@@ -100,6 +108,14 @@ static void parseCommandLine(int argc, char *argv[])
 			("xivelyAccountId,", value<string>(&xivelyAccountId), "xivelyAccountId")
 			("xivelyDeviceId,", value<string>(&xivelyDeviceId), "xivelyDeviceId")
 			("xivelyPassword,", value<string>(&xivelyPassword), "xivelyPassword")
+			("relay1", value<bool>(&relay1)->default_value(false), "Turn relay 1 on/off")
+			("relay2", value<bool>(&relay2)->default_value(false), "Turn relay 2 on/off")
+			("relay3", value<bool>(&relay3)->default_value(false), "Turn relay 3 on/off")
+			("relay4", value<bool>(&relay4)->default_value(false), "Turn relay 4 on/off")
+			("relay5", value<bool>(&relay5)->default_value(false), "Turn relay 5 on/off")
+			("relay6", value<bool>(&relay6)->default_value(false), "Turn relay 6 on/off")
+			("relay7", value<bool>(&relay7)->default_value(false), "Turn relay 7 on/off")
+			("relay8", value<bool>(&relay8)->default_value(false), "Turn relay 8 on/off")
 			("config", value<std::string>(), "Config file");
 
 	    store(parse_command_line(argc, argv, optionsDescription), variablesMap);
@@ -205,6 +221,24 @@ int main(int argc, char *argv[])
 	} else
 		SysMon::instance().rebootRouter();
 
+	if (relay1)
+		SysMon::instance().turnOnRelay(PDU_RELAY1_ON);
+	if (relay2)
+		SysMon::instance().turnOnRelay(PDU_RELAY2_ON);
+	if (relay3)
+		SysMon::instance().turnOnRelay(PDU_RELAY3_ON);
+	if (relay4)
+		SysMon::instance().turnOnRelay(PDU_RELAY4_ON);
+	if (relay5)
+		SysMon::instance().turnOnRelay(PDU_RELAY5_ON);
+	if (relay6)
+		SysMon::instance().turnOnRelay(PDU_RELAY6_ON);
+	if (relay7)
+		SysMon::instance().turnOnRelay(PDU_RELAY7_ON);
+	if (relay8)
+		SysMon::instance().turnOnRelay(PDU_RELAY8_ON);
+
+	SysMon::instance().setPdu();
 	SysMon::instance().setRpiSleepTime(rpiSleepTime);
 	SysMon::instance().setSpiSleepTime(spiSleepTime);
 
