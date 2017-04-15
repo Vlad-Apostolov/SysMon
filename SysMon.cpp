@@ -44,9 +44,9 @@ void SysMon::setSpiSleepTime(int minutes)
 
 void SysMon::rebootRouter()
 {
-	_pduControl &= ~PDU_ROUTER_ON;
+	_pduControl &= ~PDU_RELAY7_ON;
 	setPdu();
-	_pduControl |= PDU_ROUTER_ON;
+	_pduControl |= PDU_RELAY7_ON;
 	setPdu();
 }
 
@@ -66,7 +66,7 @@ void SysMon::sendMessage(const char* message)
 	int i2cFd;
 	int length = strlen(message) + 1;
 
-	if ((i2cFd = open(filename, O_RDWR)) < 0) {
+	if ((i2cFd = open(filename, O_RDWR | O_SYNC)) < 0) {
 		LOG_ERROR << "Failed to open the i2c bus";
 		return;
 	}
@@ -79,8 +79,12 @@ void SysMon::sendMessage(const char* message)
 	if (write(i2cFd, message, length) != length) {
 		LOG_ERROR << "Failed to write to the i2c bus";
 	}
+
+	fsync(i2cFd);
+
 sendMessageEnd:
 	close(i2cFd);
+	sleep(1);	// wait for i2c transfer to finish (fsync and O_SYNC don't work)
 }
 
 SysMon::SolarChargerData& SysMon::getSolarChargerData()

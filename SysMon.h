@@ -46,7 +46,7 @@ private:
 #define PDU_RELAY6_ON				0x0020
 #define PDU_RELAY7_ON				0x0040
 #define PDU_RELAY8_ON				0x0080
-#define PDU_ROUTER_ON				0x0100
+#define PDU_EXTERNAL_POWER_ON		0x0100
 #define PDU_RPI_ON					0x0200
 
 	enum MessageTag {
@@ -56,7 +56,7 @@ private:
 	};
 
 	SysMon() :
-		_pduControl(PDU_RPI_ON | PDU_ROUTER_ON)
+		_pduControl(PDU_RPI_ON)
 	{
 
 	}
