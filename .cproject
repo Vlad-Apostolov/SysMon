@@ -38,6 +38,7 @@
 									<listOptionValue builtIn="false" value="&quot;${BOOST_PATH}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${BOOST_PATH}/libs/asio/example/cpp03/icmp&quot;"/>
 									<listOptionValue builtIn="false" value="/home/vlad/xively/xively-client-c-master/include"/>
+									<listOptionValue builtIn="false" value="/home/vlad/wiringPi/wiringPi"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.other.other.355461077" name="Other flags" superClass="gnu.cpp.compiler.option.other.other" value="-c -fmessage-length=0 -std=c++11" valueType="string"/>
 								<option id="gnu.cpp.compiler.option.preprocessor.def.948138517" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def"/>
@@ -47,6 +48,7 @@
 							<tool id="cdt.managedbuild.tool.gnu.cross.c.linker.727330163" name="Cross GCC Linker" superClass="cdt.managedbuild.tool.gnu.cross.c.linker"/>
 							<tool id="cdt.managedbuild.tool.gnu.cross.cpp.linker.150982891" name="Cross G++ Linker" superClass="cdt.managedbuild.tool.gnu.cross.cpp.linker">
 								<option id="gnu.cpp.link.option.paths.726336098" name="Library search path (-L)" superClass="gnu.cpp.link.option.paths" valueType="libPaths">
+									<listOptionValue builtIn="false" value="/home/vlad/wiringPi/wiringPi"/>
 									<listOptionValue builtIn="false" value="&quot;${BOOST_PATH}/stage/lib&quot;"/>
 									<listOptionValue builtIn="false" value="/home/vlad/xively/xively-client-c-master/bin/linux"/>
 									<listOptionValue builtIn="false" value="/home/vlad/xively/xively-client-c-master/src/import/tls/wolfssl/src/.libs"/>
@@ -65,6 +67,7 @@
 									<listOptionValue builtIn="false" value="rt"/>
 									<listOptionValue builtIn="false" value="xively"/>
 									<listOptionValue builtIn="false" value="wolfssl"/>
+									<listOptionValue builtIn="false" value="wiringPi"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.linker.input.1269922890" superClass="cdt.managedbuild.tool.gnu.cpp.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>

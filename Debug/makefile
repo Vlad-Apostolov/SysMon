@@ -43,7 +43,7 @@ all: SysMon
 SysMon: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: Cross G++ Linker'
-	arm-linux-gnueabihf-g++ -L"/home/vlad/boost/boost_1_63_0/stage/lib" -L/home/vlad/xively/xively-client-c-master/bin/linux -L/home/vlad/xively/xively-client-c-master/src/import/tls/wolfssl/src/.libs -o "SysMon" $(OBJS) $(USER_OBJS) $(LIBS)
+	arm-linux-gnueabihf-g++ -L/home/vlad/wiringPi/wiringPi -L"/home/vlad/boost/boost_1_63_0/stage/lib" -L/home/vlad/xively/xively-client-c-master/bin/linux -L/home/vlad/xively/xively-client-c-master/src/import/tls/wolfssl/src/.libs -o "SysMon" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

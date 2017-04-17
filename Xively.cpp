@@ -64,7 +64,7 @@ void Xively::subscribe()
             {
             	LOG_INFO << __PRETTY_FUNCTION__ << " Received message: \n" << ((char*)(params->message.temporary_payload_data));
 				std::ofstream configFile;
-				configFile.open ("config.txt");
+				configFile.open("config.txt");
 				configFile << ((char*)(params->message.temporary_payload_data));
 				configFile.close();
             	xi_events_stop();

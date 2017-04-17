@@ -8,9 +8,9 @@
 #include <string>
 #include <sstream>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
 #include <linux/i2c-dev.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
 #include <iomanip>
 
 #include "SysMon.h"
@@ -19,96 +19,81 @@
 SysMon& SysMon::instance()
 {
 	static SysMon inst;
+	static bool firsCall = true;
+
+	if (firsCall) {
+		firsCall = false;
+		char *filename = (char*)"/dev/i2c-1";
+
+		if ((inst._i2cFd = open(filename, O_RDWR | O_SYNC)) < 0)
+			LOG_ERROR << "Failed to open the i2c bus";
+		else if (ioctl(inst._i2cFd, I2C_SLAVE, ARDUINO_I2C_SLAVE_ADDRESS) < 0)
+			LOG_ERROR << "Failed to acquire i2c bus access";
+	}
 	return inst;
 }
 
-void SysMon::setRpiSleepTime(int minutes)
+bool SysMon::setRpiSleepTime(int minutes)
 {
 	// message format "$XX,XXXX\0"
 	std::stringstream os;
 	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_RPI_SLEEP_TIME << ',';
 	os << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << minutes << '\0';
 	const char* message = os.str().c_str();
-	sendMessage(message);
+	return sendMessage(message);
 }
 
-void SysMon::setSpiSleepTime(int minutes)
+bool SysMon::setSpiSleepTime(int minutes)
 {
 	// message format "$XX,XXXX\0"
 	std::stringstream os;
 	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_SPI_SLEEP_TIME << ',';
 	os << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << minutes << '\0';
 	const char* message = os.str().c_str();
-	sendMessage(message);
+	return sendMessage(message);
 }
 
-void SysMon::rebootRouter()
+bool SysMon::rebootRouter()
 {
-	_pduControl &= ~PDU_RELAY7_ON;
-	setPdu();
+	auto lastPduControl = _pduControl;
 	_pduControl |= PDU_RELAY7_ON;
 	setPdu();
+	_pduControl = lastPduControl;
+	return setPdu();
 }
 
-void SysMon::setPdu()
+bool SysMon::setPdu()
 {
 	// message format "$XX,XXXX\0"
 	std::stringstream os;
 	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_PDU_CONTROL << ',';
 	os << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << _pduControl << '\0';
 	const char* message = os.str().c_str();
-	sendMessage(message);
+	return sendMessage(message);
 }
 
-void SysMon::sendMessage(const char* message)
+bool SysMon::sendMessage(const char* message)
 {
-	char *filename = (char*)"/dev/i2c-1";
-	int i2cFd;
+	if (_i2cFd < 0)
+		return false;
 	int length = strlen(message) + 1;
-
-	if ((i2cFd = open(filename, O_RDWR | O_SYNC)) < 0) {
-		LOG_ERROR << "Failed to open the i2c bus";
-		return;
-	}
-
-	if (ioctl(i2cFd, I2C_SLAVE, ARDUINO_I2C_SLAVE_ADDRESS) < 0) {
-		LOG_ERROR << "Failed to acquire i2c bus access";
-		goto sendMessageEnd;
-	}
-
-	if (write(i2cFd, message, length) != length) {
+	if (write(_i2cFd, message, length) != length) {
 		LOG_ERROR << "Failed to write to the i2c bus";
+		return false;
 	}
-
-	fsync(i2cFd);
-
-sendMessageEnd:
-	close(i2cFd);
+	fsync(_i2cFd);
 	sleep(1);	// wait for i2c transfer to finish (fsync and O_SYNC don't work)
+	return true;
 }
 
 SysMon::SolarChargerData& SysMon::getSolarChargerData()
 {
-	char *filename = (char*)"/dev/i2c-1";
-	int i2cFd;
 	int length = sizeof(SolarChargerData);
 	memset(&_solarChargerData, 0, length);
-
-	if ((i2cFd = open(filename, O_RDWR)) < 0) {
-		LOG_ERROR << "Failed to open the i2c bus";
-		return _solarChargerData;
+	if (_i2cFd >= 0) {
+		if (read(_i2cFd, &_solarChargerData, length) != length)
+			LOG_ERROR << "Failed to read from the i2c bus";
 	}
-
-	if (ioctl(i2cFd, I2C_SLAVE, ARDUINO_I2C_SLAVE_ADDRESS) < 0) {
-		LOG_ERROR << "Failed to acquire i2c bus access";
-		goto getSolarChargerDataEnd;
-	}
-
-	if (read(i2cFd, &_solarChargerData, length) != length) {
-		LOG_ERROR << "Failed to read from the i2c bus";
-	}
-getSolarChargerDataEnd:
-	close(i2cFd);
 	return _solarChargerData;
 }
 
@@ -125,3 +110,7 @@ int8_t SysMon::getCpuTemperature()
 	return round(temperature);
 }
 
+SysMon::~SysMon()
+{
+	close(_i2cFd);
+}

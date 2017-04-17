@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <linux/reboot.h>
 #include <sys/reboot.h>
+#include <wiringPi.h>
 
 #include "simpleLogger.h"
 #include "ping.h"
@@ -37,9 +38,9 @@ static bool shutdownRPi = false;			// when set to true, shut down Raspberry Pi
 static string logLevel = "info";			// RtiProxyClient logging threshold level: trace|debug|info|warning|error|fatal
 static string logFileName = "";				// non empty string enables logging into a file
 static string pingServerName = "";
-static std::size_t pingRetries = 1;
-static int rpiSleepTime = 30;
-static int spiSleepTime = 5;
+static std::size_t pingRetries;
+static int rpiSleepTime;
+static int spiSleepTime;
 static string PvoutputApikey;
 static string xivelyAccountId;
 static string xivelyDeviceId;
@@ -97,10 +98,10 @@ static void parseCommandLine(int argc, char *argv[])
 			("help,h", "Help screen")
 			("logLevel,l", value<string>(&logLevel)->default_value("info"), "Logging severity threshold: trace|debug|info|warning|error|fatal")
 			("consoleLog,c", "Enable console logging")
-			("shutdownRPi", "Shutdown Raspberry Pi")
+			("shutdownRPi", value<bool>(&shutdownRPi)->default_value(false), "Shutdown Raspberry Pi")
 			("logFileName,f", value<string>(&logFileName)->default_value(""), "File name for logging")
 			("pingServerName,p", value<string>(&pingServerName), "Server name to ping")
-			("pingRetries,r", value<std::size_t>(&pingRetries)->default_value(1), "Max number of ping requests before giving up")
+			("pingRetries,r", value<std::size_t>(&pingRetries)->default_value(30), "Max number of ping requests before giving up")
 			("rpiSleepTime,s", value<int>(&rpiSleepTime)->default_value(30), "Number of minutes for Raspberry Pi to sleep after shutdown")
 			("spiSleepTime", value<int>(&spiSleepTime)->default_value(5), "Number of minutes for Sleepy Pi to sleep")
 			("PvoutputApikey,a", value<string>(&PvoutputApikey), "X-Pvoutput-Apikey")
@@ -129,8 +130,10 @@ static void parseCommandLine(int argc, char *argv[])
 			shutdownRPi = true;
 		if (variablesMap.count("config")) {
 			std::ifstream configStream {variablesMap["config"].as<std::string>().c_str()};
-			if (configStream)
+			if (configStream) {
 				store(parse_config_file(configStream, optionsDescription), variablesMap);
+				configStream.close();
+			}
 		}
 		notify(variablesMap);
 	} catch (const boost::program_options::required_option& e) {
@@ -172,6 +175,12 @@ void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 int main(int argc, char *argv[])
 {
 	std::size_t pingReplies = 0;
+	bool rebootRouter = false;
+
+	if (wiringPiSetupGpio() == -1) {
+		LOG_ERROR << "wiringPiSetupGpio initialisation failed";
+		return EXIT_FAILURE;
+	}
 
 	shared_ptr<boost::asio::io_service> io_service(new boost::asio::io_service);
 	processingScheduler = io_service;
@@ -179,15 +188,21 @@ int main(int argc, char *argv[])
 	parseCommandLine(argc, argv);
 	configureLogger();
 
-	try
-	{
-		pinger ping(processingScheduler, pingServerName.c_str(), pingRetries);
-		processingScheduler->run();
-		pingReplies = ping.getReplies();
-	}
-	catch (std::exception& e)
-	{
-		LOG_ERROR << "Exception: " << e.what();
+	while (pingRetries) {
+		try
+		{
+			pinger ping(processingScheduler, pingServerName.c_str(), 1);
+			processingScheduler->run();
+			pingReplies = ping.getReplies();
+			if (pingReplies)
+				break;
+		}
+		catch (std::exception& e)
+		{
+			LOG_ERROR << "Exception: " << e.what();
+		}
+		sleep(1);
+		pingRetries--;
 	}
 
 	LOG_TRACE << "ping replies: " << pingReplies;
@@ -219,7 +234,7 @@ int main(int argc, char *argv[])
 		Xively::instance().join();
 		parseCommandLine(argc, argv);
 	} else
-		SysMon::instance().rebootRouter();
+		rebootRouter = true;
 
 	if (relay1)
 		SysMon::instance().turnOnRelay(PDU_RELAY1_ON);
@@ -237,15 +252,17 @@ int main(int argc, char *argv[])
 		SysMon::instance().turnOnRelay(PDU_RELAY7_ON);
 	if (relay8)
 		SysMon::instance().turnOnRelay(PDU_RELAY8_ON);
-
+	if (rebootRouter)
+		SysMon::instance().rebootRouter();
 	SysMon::instance().setPdu();
 	SysMon::instance().setRpiSleepTime(rpiSleepTime);
 	SysMon::instance().setSpiSleepTime(spiSleepTime);
 
-	if (shutdownRPi) {
+	int spiData = digitalRead(2);	// Raspberry Pi GPIO 2 is the I2C SDA line
+	if (shutdownRPi && spiData == 1) {	// if SDA line is held low - don't shutdown Raspberry Pi
 		sync();
 		LOG_TRACE << "Shutting down now!";
-		reboot(LINUX_REBOOT_CMD_POWER_OFF);
+		system("sudo shutdown -h now");
 	}
 
 	return EXIT_SUCCESS;

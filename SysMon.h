@@ -26,12 +26,12 @@ public:
 	};
 
 	static SysMon& instance();
-	void setRpiSleepTime(int minutes);
-	void setSpiSleepTime(int minutes);
+	bool setRpiSleepTime(int minutes);
+	bool setSpiSleepTime(int minutes);
 	void turnOnRelay(uint16_t relay) { _pduControl |= relay; }
-	void setPdu();
+	bool setPdu();
 	SolarChargerData& getSolarChargerData();
-	void rebootRouter();
+	bool rebootRouter();
 	int8_t getCpuTemperature();
 
 private:
@@ -56,15 +56,17 @@ private:
 	};
 
 	SysMon() :
-		_pduControl(PDU_RPI_ON)
+		_pduControl(PDU_RPI_ON),
+		_i2cFd(-1)
 	{
 
 	}
-	virtual ~SysMon() {}
+	virtual ~SysMon();
 
-	void sendMessage(const char* message);
+	bool sendMessage(const char* message);
 
 	uint16_t _pduControl;
+	int _i2cFd;
 	SolarChargerData _solarChargerData;
 };
 
