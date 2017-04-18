@@ -150,9 +150,9 @@ void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 {
 #define MAX_COMMAND_LENGHT 1000
 	tm* timeInfo = localtime((time_t*)&solarChargerData.time);
-	int powerGeneration = round(((double)solarChargerData.chargerCurrent * (double)solarChargerData.chargerVoltage)/1000.0);
+	int powerGeneration = round((double)solarChargerData.panelPower/10.0);
 	int energyGeneration = round((double)powerGeneration * ((double)spiSleepTime/60.0));
-	int powerConsumption = round(((double)solarChargerData.loadCurrent * (double)solarChargerData.loadVoltage)/1000.0);
+	int powerConsumption = round((double)solarChargerData.chargerPowerToday/100.0);
 	int energyConsumption = round((double)powerConsumption * ((double)spiSleepTime/60.0));
 	double temperature = (double)solarChargerData.cpuTemperature;
 	double voltage = (double)solarChargerData.panelVoltage/100.0;

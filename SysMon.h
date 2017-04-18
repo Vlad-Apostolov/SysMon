@@ -15,13 +15,12 @@ public:
 	struct SolarChargerData {
 		uint32_t time;
 		uint32_t panelPower;
+		uint16_t panelVoltage;
+		uint16_t panelCurrent;
 		uint16_t chargerVoltage;
 		uint16_t chargerCurrent;
 		uint16_t chargerPowerToday;
-		uint16_t loadVoltage;
 		uint16_t loadCurrent;
-		uint16_t panelVoltage;
-		uint16_t panelCurrent;
 		int16_t cpuTemperature;
 	};
 
