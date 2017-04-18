@@ -28,6 +28,7 @@ public:
 	static SysMon& instance();
 	bool setRpiSleepTime(int minutes);
 	bool setSpiSleepTime(int minutes);
+	bool setSpiSystemTime();
 	void turnOnRelay(uint16_t relay) { _pduControl |= relay; }
 	bool setPdu();
 	SolarChargerData& getSolarChargerData();
@@ -52,7 +53,8 @@ private:
 	enum MessageTag {
 		TAG_PDU_CONTROL,
 		TAG_RPI_SLEEP_TIME,
-		TAG_SPI_SLEEP_TIME
+		TAG_SPI_SLEEP_TIME,
+		TAG_SPI_SYSTEM_TIME
 	};
 
 	SysMon() :

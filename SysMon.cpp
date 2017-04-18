@@ -35,20 +35,31 @@ SysMon& SysMon::instance()
 
 bool SysMon::setRpiSleepTime(int minutes)
 {
-	// message format "$XX,XXXX\0"
+	// message format "$XX,XXXXXXXX\0"
 	std::stringstream os;
 	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_RPI_SLEEP_TIME << ',';
-	os << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << minutes << '\0';
+	os << std::uppercase << std::setfill('0') << std::setw(8) << std::hex << minutes << '\0';
 	const char* message = os.str().c_str();
 	return sendMessage(message);
 }
 
 bool SysMon::setSpiSleepTime(int minutes)
 {
-	// message format "$XX,XXXX\0"
+	// message format "$XX,XXXXXXXX\0"
 	std::stringstream os;
 	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_SPI_SLEEP_TIME << ',';
-	os << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << minutes << '\0';
+	os << std::uppercase << std::setfill('0') << std::setw(8) << std::hex << minutes << '\0';
+	const char* message = os.str().c_str();
+	return sendMessage(message);
+}
+
+bool SysMon::setSpiSystemTime()
+{
+	time_t now = time(NULL);
+	// message format "$XX,XXXXXXXX\0"
+	std::stringstream os;
+	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_SPI_SYSTEM_TIME << ',';
+	os << std::uppercase << std::setfill('0') << std::setw(8) << std::hex << now << '\0';
 	const char* message = os.str().c_str();
 	return sendMessage(message);
 }
@@ -67,7 +78,7 @@ bool SysMon::setPdu()
 	// message format "$XX,XXXX\0"
 	std::stringstream os;
 	os << '$' << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << TAG_PDU_CONTROL << ',';
-	os << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << _pduControl << '\0';
+	os << std::uppercase << std::setfill('0') << std::setw(8) << std::hex << _pduControl << '\0';
 	const char* message = os.str().c_str();
 	return sendMessage(message);
 }

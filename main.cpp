@@ -257,6 +257,7 @@ int main(int argc, char *argv[])
 	SysMon::instance().setPdu();
 	SysMon::instance().setRpiSleepTime(rpiSleepTime);
 	SysMon::instance().setSpiSleepTime(spiSleepTime);
+	SysMon::instance().setSpiSystemTime();
 
 	int spiData = digitalRead(2);	// Raspberry Pi GPIO 2 is the I2C SDA line
 	if (shutdownRPi && spiData == 1) {	// if SDA line is held low - don't shutdown Raspberry Pi
