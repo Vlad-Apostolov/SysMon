@@ -150,10 +150,10 @@ void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 {
 #define MAX_COMMAND_LENGHT 1000
 	tm* timeInfo = localtime((time_t*)&solarChargerData.time);
-	int powerGeneration = round((double)solarChargerData.panelPower/10.0);
-	int energyGeneration = round((double)powerGeneration * ((double)spiSleepTime/60.0));
-	int powerConsumption = round((double)solarChargerData.chargerPowerToday/100.0);
-	int energyConsumption = round((double)powerConsumption * ((double)spiSleepTime/60.0));
+	int energyGenerationWatsPerHour = round((double)solarChargerData.panelPower/10.0);
+	int powerGenerationWats = solarChargerData.chargerMaxPowerToday;
+	int energyConsumptionWatsPerHour = 10 * solarChargerData.chargerPowerToday;
+	int powerConsumptionWats = round((solarChargerData.chargerVoltage * (solarChargerData.chargerCurrent + solarChargerData.loadCurrent))/1000.0);
 	double temperature = (double)solarChargerData.cpuTemperature;
 	double voltage = (double)solarChargerData.panelVoltage/100.0;
 	char command[MAX_COMMAND_LENGHT];
@@ -165,8 +165,8 @@ void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 		"-H \"X-Pvoutput-Apikey: %s\" -H \"X-Pvoutput-SystemId: %d\" "
 		"http://pvoutput.org/service/r2/addstatus.jsp",
 		timeInfo->tm_year+1900, timeInfo->tm_mon+1, timeInfo->tm_mday, timeInfo->tm_hour, timeInfo->tm_min,
-		energyGeneration, powerGeneration,
-		energyConsumption, powerConsumption,
+		energyGenerationWatsPerHour, powerGenerationWats,
+		energyConsumptionWatsPerHour, powerConsumptionWats,
 		temperature, voltage,
 		PvoutputApikey.c_str(), PvoutputSystemId);
 	system(command);
@@ -216,21 +216,6 @@ int main(int argc, char *argv[])
 			publishSolarChargerData(solarChargerData);
 			Xively::instance().publish(solarChargerData);
 		}
-#if 0
-		SysMon::SolarChargerData solarChargerTestData;
-		solarChargerTestData.chargerCurrent = 12;
-		solarChargerTestData.chargerPowerToday = 254;
-		solarChargerTestData.chargerVoltage = 1450;
-		solarChargerTestData.loadCurrent = 8;
-		solarChargerTestData.loadVoltage = 1272;
-		solarChargerTestData.panelCurrent = 25;
-		solarChargerTestData.panelPower = 10000;
-		solarChargerTestData.panelVoltage = 10000;
-		solarChargerTestData.time = time(NULL);
-		solarChargerTestData.cpuTemperature = 32;
-		publishSolarChargerData(solarChargerTestData);
-		Xively::instance().publish(solarChargerTestData);
-#endif
 		Xively::instance().join();
 		parseCommandLine(argc, argv);
 	} else
