@@ -39,7 +39,12 @@
 
   void pinger::handle_timeout()
   {
-	  io_service_->stop();
+	  if (num_replies_ || num_retries_ == 0) {
+		  io_service_->stop();
+		  return;
+	  }
+	  num_retries_--;
+
 //    if (num_replies_ == 0)
 //      std::cout << "Request timed out" << std::endl;
 //
