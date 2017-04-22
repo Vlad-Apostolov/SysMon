@@ -146,7 +146,7 @@ static void parseCommandLine(int argc, char *argv[])
     }
 }
 
-void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
+static void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 {
 #define MAX_COMMAND_LENGHT 1000
 	tm* timeInfo = localtime((time_t*)&solarChargerData.time);
@@ -170,6 +170,50 @@ void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 		temperature, voltage,
 		PvoutputApikey.c_str(), PvoutputSystemId);
 	system(command);
+}
+
+static void downloadFromSPi(int argc, char *argv[])
+{
+	Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword);
+	for(;;) {
+		SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
+		if (solarChargerData.time == 0)
+			break;
+		publishSolarChargerData(solarChargerData);
+		Xively::instance().publish(solarChargerData);
+	}
+	Xively::instance().join();
+	parseCommandLine(argc, argv);
+}
+
+static int uploadToSPi(bool rebootRouter)
+{
+	if (relay1)
+		SysMon::instance().turnOnRelay(PDU_RELAY1_ON);
+	if (relay2)
+		SysMon::instance().turnOnRelay(PDU_RELAY2_ON);
+	if (relay3)
+		SysMon::instance().turnOnRelay(PDU_RELAY3_ON);
+	if (relay4)
+		SysMon::instance().turnOnRelay(PDU_RELAY4_ON);
+	if (relay5)
+		SysMon::instance().turnOnRelay(PDU_RELAY5_ON);
+	if (relay6)
+		SysMon::instance().turnOnRelay(PDU_RELAY6_ON);
+	if (relay7)
+		SysMon::instance().turnOnRelay(PDU_RELAY7_ON);
+	if (relay8)
+		SysMon::instance().turnOnRelay(PDU_RELAY8_ON);
+	if (rebootRouter)
+		SysMon::instance().rebootRouter();
+	SysMon::instance().setPdu();
+	SysMon::instance().setRpiSleepTime(rpiSleepTime);
+	SysMon::instance().setSpiSleepTime(spiSleepTime);
+	SysMon::instance().setSpiSystemTime();
+
+	// if SDA line is held low - don't shutdown Raspberry Pi
+	int spiData = digitalRead(2);	// Raspberry Pi GPIO 2 is the I2C SDA line
+	return spiData;
 }
 
 int main(int argc, char *argv[])
@@ -207,49 +251,20 @@ int main(int argc, char *argv[])
 
 	LOG_TRACE << "ping replies: " << pingReplies;
 
-	if (pingReplies) {
-		Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword);
-		for(;;) {
-			SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
-			if (solarChargerData.time == 0)
-				break;
-			publishSolarChargerData(solarChargerData);
-			Xively::instance().publish(solarChargerData);
-		}
-		Xively::instance().join();
-		parseCommandLine(argc, argv);
-	} else
+	if (pingReplies)
+		downloadFromSPi(argc, argv);
+	else
 		rebootRouter = true;
 
-	if (relay1)
-		SysMon::instance().turnOnRelay(PDU_RELAY1_ON);
-	if (relay2)
-		SysMon::instance().turnOnRelay(PDU_RELAY2_ON);
-	if (relay3)
-		SysMon::instance().turnOnRelay(PDU_RELAY3_ON);
-	if (relay4)
-		SysMon::instance().turnOnRelay(PDU_RELAY4_ON);
-	if (relay5)
-		SysMon::instance().turnOnRelay(PDU_RELAY5_ON);
-	if (relay6)
-		SysMon::instance().turnOnRelay(PDU_RELAY6_ON);
-	if (relay7)
-		SysMon::instance().turnOnRelay(PDU_RELAY7_ON);
-	if (relay8)
-		SysMon::instance().turnOnRelay(PDU_RELAY8_ON);
-	if (rebootRouter)
-		SysMon::instance().rebootRouter();
-	SysMon::instance().setPdu();
-	SysMon::instance().setRpiSleepTime(rpiSleepTime);
-	SysMon::instance().setSpiSleepTime(spiSleepTime);
-	SysMon::instance().setSpiSystemTime();
+	int confirmRPiShutdown = uploadToSPi(rebootRouter);
 
-	int spiData = digitalRead(2);	// Raspberry Pi GPIO 2 is the I2C SDA line
-	if (shutdownRPi && spiData == 1) {	// if SDA line is held low - don't shutdown Raspberry Pi
+	if (shutdownRPi && confirmRPiShutdown) {
 		sync();
+		system("i2cset -y 1 0x24 0xFF");	// switch the SPi Software Jumper OFF
 		LOG_TRACE << "Shutting down now!";
 		system("sudo shutdown -h now");
-	}
+	} else
+		system("i2cset -y 1 0x24 0xFD");	// switch the SPi Software Jumper ON
 
 	return EXIT_SUCCESS;
 }

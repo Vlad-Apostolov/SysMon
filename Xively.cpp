@@ -78,10 +78,8 @@ void Xively::subscribe()
 
 void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, void*)
 {
-	if (Xively::instance()._solarChargerDataList.empty()) {
-		//xi_events_stop();
+	if (Xively::instance()._solarChargerDataList.empty())
 		return;
-	}
 
 	auto& solarChargerData = Xively::instance()._solarChargerDataList.front();
 	tm* timeInfo = localtime((time_t*)&solarChargerData.time);
@@ -106,7 +104,7 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 		solarChargerData.loadCurrent/10.0,
 		solarChargerData.cpuTemperature,
 		SysMon::instance().getCpuTemperature()
-		);
+	);
 	Xively::instance()._solarChargerDataList.pop_front();
     xi_publish(Xively::instance()._context,
     		   Xively::instance()._channel[MC_2].c_str(),
@@ -119,8 +117,6 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 		xi_schedule_timed_task(Xively::instance()._context, Xively::publish, 5, 0, NULL);
 		return;
 	}
-
-	//xi_events_stop();
 }
 
 void Xively::connect()
