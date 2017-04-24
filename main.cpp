@@ -244,6 +244,7 @@ int main(int argc, char *argv[])
 		catch (std::exception& e)
 		{
 			LOG_ERROR << "Exception: " << e.what();
+			break;
 		}
 		sleep(1);
 		pingRetries--;
