@@ -38,7 +38,7 @@ static bool shutdownRPi = false;			// when set to true, shut down Raspberry Pi
 static string logLevel = "info";			// RtiProxyClient logging threshold level: trace|debug|info|warning|error|fatal
 static string logFileName = "";				// non empty string enables logging into a file
 static string pingServerName = "";
-static std::size_t pingRetries;
+static time_t pingTimeout;
 static int rpiSleepTime;
 static int spiSleepTime;
 static string PvoutputApikey;
@@ -101,7 +101,7 @@ static void parseCommandLine(int argc, char *argv[])
 			("shutdownRPi", value<bool>(&shutdownRPi)->default_value(false), "Shutdown Raspberry Pi")
 			("logFileName,f", value<string>(&logFileName)->default_value(""), "File name for logging")
 			("pingServerName,p", value<string>(&pingServerName), "Server name to ping")
-			("pingRetries,r", value<std::size_t>(&pingRetries)->default_value(30), "Max number of ping requests before giving up")
+			("pingTimeout,r", value<time_t>(&pingTimeout)->default_value(30), "Max number of ping requests before giving up")
 			("rpiSleepTime,s", value<int>(&rpiSleepTime)->default_value(30), "Number of minutes for Raspberry Pi to sleep after shutdown")
 			("spiSleepTime", value<int>(&spiSleepTime)->default_value(5), "Number of minutes for Sleepy Pi to sleep")
 			("PvoutputApikey,a", value<string>(&PvoutputApikey), "X-Pvoutput-Apikey")
@@ -218,6 +218,8 @@ static int uploadToSPi(bool rebootRouter)
 
 int main(int argc, char *argv[])
 {
+	time_t upTime = time(NULL);
+	time_t now = upTime;
 	std::size_t pingReplies = 0;
 	bool rebootRouter = false;
 
@@ -232,7 +234,7 @@ int main(int argc, char *argv[])
 	parseCommandLine(argc, argv);
 	configureLogger();
 
-	while (pingRetries) {
+	while ((now - upTime) <= pingTimeout) {
 		try
 		{
 			pinger ping(processingScheduler, pingServerName.c_str(), 1);
@@ -244,10 +246,9 @@ int main(int argc, char *argv[])
 		catch (std::exception& e)
 		{
 			LOG_ERROR << "Exception: " << e.what();
-			break;
 		}
 		sleep(1);
-		pingRetries--;
+		now = time(NULL);
 	}
 
 	LOG_TRACE << "ping replies: " << pingReplies;
