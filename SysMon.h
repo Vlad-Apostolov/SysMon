@@ -31,7 +31,7 @@ public:
 	void turnOnRelay(uint16_t relay) { _pduControl |= relay; }
 	bool setPdu();
 	SolarChargerData& getSolarChargerData();
-	bool rebootRouter();
+	bool rebootRouter(time_t routerPowerOffTime);
 	int8_t getCpuTemperature();
 
 private:
