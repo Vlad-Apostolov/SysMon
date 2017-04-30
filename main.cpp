@@ -38,7 +38,8 @@ static bool shutdownRPi = false;			// when set to true, shut down Raspberry Pi
 static string logLevel = "info";			// RtiProxyClient logging threshold level: trace|debug|info|warning|error|fatal
 static string logFileName = "";				// non empty string enables logging into a file
 static string pingServerName = "";
-static time_t pingTimeout;
+static time_t webConnectionCheckTime;
+static time_t routerPowerOffTime;
 static int rpiSleepTime;
 static int spiSleepTime;
 static string PvoutputApikey;
@@ -100,8 +101,9 @@ static void parseCommandLine(int argc, char *argv[])
 			("consoleLog,c", "Enable console logging")
 			("shutdownRPi", value<bool>(&shutdownRPi)->default_value(false), "Shutdown Raspberry Pi")
 			("logFileName,f", value<string>(&logFileName)->default_value(""), "File name for logging")
-			("pingServerName,p", value<string>(&pingServerName), "Server name to ping")
-			("pingTimeout,r", value<time_t>(&pingTimeout)->default_value(30), "Max number of ping requests before giving up")
+			("pingServerName,p", value<string>(&pingServerName)->default_value("google.com"), "Server name to ping")
+			("webConnectionCheckTime,w", value<time_t>(&webConnectionCheckTime)->default_value(60), "Max number of seconds to check for connection to Internet")
+			("routerPowerOffTime,r", value<time_t>(&routerPowerOffTime)->default_value(60), "Number of seconds to keep the router power off")
 			("rpiSleepTime,s", value<int>(&rpiSleepTime)->default_value(30), "Number of minutes for Raspberry Pi to sleep after shutdown")
 			("spiSleepTime", value<int>(&spiSleepTime)->default_value(5), "Number of minutes for Sleepy Pi to sleep")
 			("PvoutputApikey,a", value<string>(&PvoutputApikey), "X-Pvoutput-Apikey")
@@ -119,7 +121,10 @@ static void parseCommandLine(int argc, char *argv[])
 			("relay8", value<bool>(&relay8)->default_value(false), "Turn relay 8 on/off")
 			("config", value<std::string>(), "Config file");
 
-	    store(parse_command_line(argc, argv, optionsDescription), variablesMap);
+		command_line_parser parser{argc, argv};
+		parser.options(optionsDescription).allow_unregistered();
+		parsed_options parsedOptions = parser.run();
+	    store(parsedOptions, variablesMap);
 		if (variablesMap.count("help")) {
 			cout << optionsDescription << endl;
 			exit(EXIT_SUCCESS);
@@ -186,7 +191,7 @@ static void downloadFromSPi(int argc, char *argv[])
 	parseCommandLine(argc, argv);
 }
 
-static int uploadToSPi(bool rebootRouter)
+static void setRelays()
 {
 	if (relay1)
 		SysMon::instance().turnOnRelay(PDU_RELAY1_ON);
@@ -204,8 +209,10 @@ static int uploadToSPi(bool rebootRouter)
 		SysMon::instance().turnOnRelay(PDU_RELAY7_ON);
 	if (relay8)
 		SysMon::instance().turnOnRelay(PDU_RELAY8_ON);
-	if (rebootRouter)
-		SysMon::instance().rebootRouter();
+}
+
+static int uploadToSPi()
+{
 	SysMon::instance().setPdu();
 	SysMon::instance().setRpiSleepTime(rpiSleepTime);
 	SysMon::instance().setSpiSleepTime(spiSleepTime);
@@ -218,50 +225,54 @@ static int uploadToSPi(bool rebootRouter)
 
 int main(int argc, char *argv[])
 {
-	time_t upTime = time(NULL);
-	time_t now = upTime;
-	std::size_t pingReplies = 0;
-	bool rebootRouter = false;
-
+	signal(SIGINT, stopProcessing);
+	configureLogger();
 	if (wiringPiSetupGpio() == -1) {
 		LOG_ERROR << "wiringPiSetupGpio initialisation failed";
 		return EXIT_FAILURE;
 	}
 
+	parseCommandLine(argc, argv);
+	setRelays();
+
 	shared_ptr<boost::asio::io_service> io_service(new boost::asio::io_service);
 	processingScheduler = io_service;
-	signal(SIGINT, stopProcessing);
-	parseCommandLine(argc, argv);
-	configureLogger();
-
-	while ((now - upTime) <= pingTimeout) {
-		try
-		{
-			pinger ping(processingScheduler, pingServerName.c_str(), 1);
-			processingScheduler->run();
-			pingReplies = ping.getReplies();
-			if (pingReplies)
-				break;
+	std::size_t pingReplies = 0;
+	bool firstReboot = true;
+	while (true) {	// check Internet connection
+		time_t upTime = time(NULL);
+		time_t now = upTime;
+		while ((now - upTime) <= webConnectionCheckTime) {
+			try
+			{
+				pinger ping(processingScheduler, pingServerName.c_str(), 1);
+				processingScheduler->run();
+				pingReplies = ping.getReplies();
+				if (pingReplies)
+					break;
+			}
+			catch (std::exception& e)
+			{
+				LOG_ERROR << "Exception: " << e.what();
+			}
+			sleep(1);
+			now = time(NULL);
 		}
-		catch (std::exception& e)
-		{
-			LOG_ERROR << "Exception: " << e.what();
-		}
-		sleep(1);
-		now = time(NULL);
+		if (pingReplies)
+			break;
+		if (firstReboot) {
+			firstReboot = false;
+			SysMon::instance().rebootRouter(10);	// try short (10 seconds) router power off time
+		} else
+			SysMon::instance().rebootRouter(routerPowerOffTime);
 	}
 
-	LOG_TRACE << "ping replies: " << pingReplies;
+	downloadFromSPi(argc, argv);
 
-	if (pingReplies)
-		downloadFromSPi(argc, argv);
-	else
-		rebootRouter = true;
-
-	int confirmRPiShutdown = uploadToSPi(rebootRouter);
+	int confirmRPiShutdown = uploadToSPi();
+	sync();
 
 	if (shutdownRPi && confirmRPiShutdown) {
-		sync();
 		system("i2cset -y 1 0x24 0xFF");	// switch the SPi Software Jumper OFF
 		LOG_TRACE << "Shutting down now!";
 		system("sudo shutdown -h now");

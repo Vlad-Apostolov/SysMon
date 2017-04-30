@@ -64,13 +64,12 @@ bool SysMon::setSpiSystemTime()
 	return sendMessage(message);
 }
 
-bool SysMon::rebootRouter()
+bool SysMon::rebootRouter(time_t routerPowerOffTime)
 {
-#define ROUTER_POWER_OFF_TIME	10	// in seconds
 	auto lastPduControl = _pduControl;
 	_pduControl |= PDU_RELAY7_ON;
 	setPdu();
-	sleep(ROUTER_POWER_OFF_TIME);
+	sleep(routerPowerOffTime);
 	_pduControl = lastPduControl;
 	return setPdu();
 }
