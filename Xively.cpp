@@ -115,7 +115,7 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 		"Energy Generation %d Wh\n\r"
 		"Power Generation %3.2f W\n\r"
 		"Energy Consumption %d Wh\n\r"
-		"Power Consumption %d W\n\r"
+		"Power Consumption %3.2f W\n\r"
 		"Sleepy Pi temperature %d C\n\r"
 		"Panel Voltage %3.2f V\n\r"
 		"Battery Voltage %3.2f V\n\r"
@@ -126,7 +126,7 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 		solarChargerData.energyYieldToday * 10,
 		solarChargerData.panelPower/100.00,
 		solarChargerData.consumedToday * 10,
-		((uint32_t)solarChargerData.chargerVoltage * ((uint32_t)solarChargerData.chargerCurrent + (uint32_t)solarChargerData.loadCurrent))/1000,
+		((uint32_t)solarChargerData.chargerVoltage * (uint32_t)solarChargerData.chargerCurrent)/1000.00,
 		solarChargerData.cpuTemperature,
 		solarChargerData.panelVoltage/100.00,
 		solarChargerData.chargerVoltage/100.0,
