@@ -83,26 +83,55 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 
 	auto& solarChargerData = Xively::instance()._solarChargerDataList.front();
 	tm* timeInfo = localtime((time_t*)&solarChargerData.time);
+	const char* chargerStatus;
+	switch (solarChargerData.deviceState) {
+	case 0:
+		chargerStatus = "NOT_CHARGING";
+		break;
+	case 2:
+		chargerStatus = "FAULT";
+		break;
+	case 3:
+		chargerStatus = "BULK";
+		break;
+	case 4:
+		chargerStatus = "ABSORPTION";
+		break;
+	case 5:
+		chargerStatus = "FLOAT";
+		break;
+	case 252:
+		chargerStatus = "HUB-1";
+		break;
+	case 253:
+		chargerStatus = "UNAVAILABLE";
+		break;
+	default:
+		chargerStatus = "UNKNOWN";
+		break;
+	}
 	snprintf(Xively::instance()._message, MAX_MESSAGE_SIZE,
 		"Date: %2u/%02u/%04u Time: %02u:%02u\n\r"
-		"Panel data:\n\r"
-		"    voltage: %3.2f V\n\r"
-		"    power: %3.2f W\n\r"
-		"Charger data:\n\r"
-		"    voltage:     %3.2f V\n\r"
-		"    current:     %3.1f A\n\r"
-		"    yield today: %3.2f kWh\n\r"
-		"Load data:\n\r"
-		"    current:     %3.1f A\n\r"
-		"SPiTemperature: %dC, RPiTemperature: %dC\n\r",
+		"Energy Generation %d Wh\n\r"
+		"Power Generation %d W\n\r"
+		"Energy Consumption %d Wh\n\r"
+		"Power Consumption %d W\n\r"
+		"Sleepy Pi temperature %d C\n\r"
+		"Panel Voltage %3.2f V\n\r"
+		"Battery Voltage %3.2f V\n\r"
+		"Charger Status %s\n\r"
+		"Energy Consumption Yesterday %d Wh\n\r"
+		"Raspberry Pi temperature %d C\n\r",
 		timeInfo->tm_mday, timeInfo->tm_mon+1, timeInfo->tm_year+1900, timeInfo->tm_hour, timeInfo->tm_min,
-		solarChargerData.panelVoltage/100.00,
-		solarChargerData.panelPower/100.0,
-		solarChargerData.chargerVoltage/100.0,
-		solarChargerData.chargerCurrent/10.0,
-		solarChargerData.chargerPowerToday/100.0,
-		solarChargerData.loadCurrent/10.0,
+		solarChargerData.energyYieldToday * 10,
+		solarChargerData.panelPower,
+		solarChargerData.consumedToday * 10,
+		((uint32_t)solarChargerData.chargerVoltage * ((uint32_t)solarChargerData.chargerCurrent + (uint32_t)solarChargerData.loadCurrent))/1000,
 		solarChargerData.cpuTemperature,
+		solarChargerData.panelVoltage/100.00,
+		solarChargerData.chargerVoltage/100.0,
+		chargerStatus,
+		solarChargerData.consumedYesterday * 10,
 		SysMon::instance().getCpuTemperature()
 	);
 	Xively::instance()._solarChargerDataList.pop_front();

@@ -33,7 +33,7 @@ using namespace boost::iostreams;
 using namespace boost::filesystem;
 
 // RtiProxyClient logging control variables
-static bool consoleLogging = false;			// when set to true, enables logging to console
+static bool consoleLogging = true;			// when set to true, enables logging to console
 static bool shutdownRPi = false;			// when set to true, shut down Raspberry Pi
 static string logLevel = "info";			// RtiProxyClient logging threshold level: trace|debug|info|warning|error|fatal
 static string logFileName = "";				// non empty string enables logging into a file
@@ -87,6 +87,7 @@ static void configureLogger()
 		cout << "Unexpected logging level!" << endl;
 		exit(EXIT_FAILURE);
 	}
+
 	configureLogger(level, consoleLogging, logFile);
 }
 
@@ -153,27 +154,39 @@ static void parseCommandLine(int argc, char *argv[])
 
 static void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 {
-#define MAX_COMMAND_LENGHT 1000
 	tm* timeInfo = localtime((time_t*)&solarChargerData.time);
-	int energyGenerationWatsPerHour = round((double)solarChargerData.panelPower/10.0);
-	int powerGenerationWats = solarChargerData.chargerMaxPowerToday;
-	int energyConsumptionWatsPerHour = 10 * solarChargerData.chargerPowerToday;
-	int powerConsumptionWats = round((solarChargerData.chargerVoltage * (solarChargerData.chargerCurrent + solarChargerData.loadCurrent))/1000.0);
-	double temperature = (double)solarChargerData.cpuTemperature;
-	double voltage = (double)solarChargerData.panelVoltage/100.0;
+	int energyGenerationWh = solarChargerData.energyYieldToday * 10;
+	int powerGenerationW = solarChargerData.panelPower;
+	int energyConsumptionWh = solarChargerData.consumedToday * 10;
+	int powerConsumptionW = ((uint32_t)solarChargerData.chargerVoltage * ((uint32_t)solarChargerData.chargerCurrent + (uint32_t)solarChargerData.loadCurrent))/1000;
+	int spiTemperatureC = solarChargerData.cpuTemperature;
+	double panelVoltageV = solarChargerData.panelVoltage/100.00;
+	double batteryVoltageV = solarChargerData.chargerVoltage/100.0;
+	int chargerStatus = solarChargerData.deviceState;
+	int energyConsumptionYesterdayWh = solarChargerData.consumedYesterday * 10;
+	int rpiTemperatureC = SysMon::instance().getCpuTemperature();
+
+#define MAX_COMMAND_LENGHT 1000
 	char command[MAX_COMMAND_LENGHT];
 	snprintf(command, MAX_COMMAND_LENGHT,
-		"curl -d \"d=%4u%02u%02u\" -d \"t=%02u:%02u\" "
-		"-d \"v1=%d\" -d \"v2=%d\" "
-		"-d \"v3=%d\" -d \"v4=%d\" "
-		"-d \"v5=%3.1f\" -d \"v6=%4.1f\" "
+		"curl -d \"d=%4u%02u%02u\" -d \"t=%02u:%02u\" "	// timeInfo
+		"-d \"v1=%d\" -d \"v2=%d\" "					// energyGenerationWh, powerGenerationW
+		"-d \"v3=%d\" -d \"v4=%d\" "					// energyConsumptionWh, powerConsumptionW
+		"-d \"v5=%d\" -d \"v6=%4.1f\" "					// spiTemperatureC, panelVoltageV
+		"-d \"v7=%4.1f\" -d \"v8=%d\" "					// batteryVoltageV, chargerStatus
+		"-d \"v9=%d\" -d \"v10=%d\" "					// energyConsumptionYesterdayWh, rpiTemperatureC
+		"-d \"v11=%d\" -d \"v12=%d\" "					// solarChargerData.chargerCurrent, solarChargerData.loadCurrent
 		"-H \"X-Pvoutput-Apikey: %s\" -H \"X-Pvoutput-SystemId: %d\" "
 		"http://pvoutput.org/service/r2/addstatus.jsp",
 		timeInfo->tm_year+1900, timeInfo->tm_mon+1, timeInfo->tm_mday, timeInfo->tm_hour, timeInfo->tm_min,
-		energyGenerationWatsPerHour, powerGenerationWats,
-		energyConsumptionWatsPerHour, powerConsumptionWats,
-		temperature, voltage,
+		energyGenerationWh, powerGenerationW,
+		energyConsumptionWh, powerConsumptionW,
+		spiTemperatureC, panelVoltageV,
+		batteryVoltageV, chargerStatus,
+		energyConsumptionYesterdayWh, rpiTemperatureC,
+		solarChargerData.chargerCurrent, solarChargerData.loadCurrent,
 		PvoutputApikey.c_str(), PvoutputSystemId);
+	LOG_INFO << command;
 	system(command);
 }
 
@@ -267,6 +280,7 @@ int main(int argc, char *argv[])
 			SysMon::instance().rebootRouter(routerPowerOffTime);
 	}
 
+	system("/etc/init.d/ntp stop; ntpd -q -g; /etc/init.d/ntp start");	// synchronize local clock with Internet
 	downloadFromSPi(argc, argv);
 
 	int confirmRPiShutdown = uploadToSPi();
