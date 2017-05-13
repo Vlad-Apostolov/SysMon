@@ -156,7 +156,7 @@ static void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 {
 	tm* timeInfo = localtime((time_t*)&solarChargerData.time);
 	int energyGenerationWh = solarChargerData.energyYieldToday * 10;
-	int powerGenerationW = solarChargerData.panelPower;
+	int powerGenerationW = round(solarChargerData.panelPower/100.00);
 	int energyConsumptionWh = solarChargerData.consumedToday * 10;
 	int powerConsumptionW = ((uint32_t)solarChargerData.chargerVoltage * ((uint32_t)solarChargerData.chargerCurrent + (uint32_t)solarChargerData.loadCurrent))/1000;
 	int spiTemperatureC = solarChargerData.cpuTemperature;

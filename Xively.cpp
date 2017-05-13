@@ -113,7 +113,7 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 	snprintf(Xively::instance()._message, MAX_MESSAGE_SIZE,
 		"Date: %2u/%02u/%04u Time: %02u:%02u\n\r"
 		"Energy Generation %d Wh\n\r"
-		"Power Generation %d W\n\r"
+		"Power Generation %3.2f W\n\r"
 		"Energy Consumption %d Wh\n\r"
 		"Power Consumption %d W\n\r"
 		"Sleepy Pi temperature %d C\n\r"
@@ -124,7 +124,7 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 		"Raspberry Pi temperature %d C\n\r",
 		timeInfo->tm_mday, timeInfo->tm_mon+1, timeInfo->tm_year+1900, timeInfo->tm_hour, timeInfo->tm_min,
 		solarChargerData.energyYieldToday * 10,
-		solarChargerData.panelPower,
+		solarChargerData.panelPower/100.00,
 		solarChargerData.consumedToday * 10,
 		((uint32_t)solarChargerData.chargerVoltage * ((uint32_t)solarChargerData.chargerCurrent + (uint32_t)solarChargerData.loadCurrent))/1000,
 		solarChargerData.cpuTemperature,
