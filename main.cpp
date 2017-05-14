@@ -87,6 +87,7 @@ static void configureLogger()
 		cout << "Unexpected logging level!" << endl;
 		exit(EXIT_FAILURE);
 	}
+
 	configureLogger(level, consoleLogging, logFile);
 }
 
@@ -131,8 +132,6 @@ static void parseCommandLine(int argc, char *argv[])
 		}
 		if (variablesMap.count("consoleLog"))
 			consoleLogging = true;
-		if (variablesMap.count("shutdownRPi"))
-			shutdownRPi = true;
 		if (variablesMap.count("config")) {
 			std::ifstream configStream {variablesMap["config"].as<std::string>().c_str()};
 			if (configStream) {
@@ -149,37 +148,50 @@ static void parseCommandLine(int argc, char *argv[])
             throw e;
         }
     }
+	configureLogger();
 }
 
 static void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 {
-#define MAX_COMMAND_LENGHT 1000
 	tm* timeInfo = localtime((time_t*)&solarChargerData.time);
-	int energyGenerationWatsPerHour = round((double)solarChargerData.panelPower/10.0);
-	int powerGenerationWats = solarChargerData.chargerMaxPowerToday;
-	int energyConsumptionWatsPerHour = 10 * solarChargerData.chargerPowerToday;
-	int powerConsumptionWats = round((solarChargerData.chargerVoltage * (solarChargerData.chargerCurrent + solarChargerData.loadCurrent))/1000.0);
-	double temperature = (double)solarChargerData.cpuTemperature;
-	double voltage = (double)solarChargerData.panelVoltage/100.0;
+	int energyGenerationWh = solarChargerData.energyYieldToday * 10;
+	int powerGenerationW = round(solarChargerData.panelPower/100.00);
+	int energyConsumptionWh = solarChargerData.consumedToday * 10;
+	int powerConsumptionW = ((uint32_t)solarChargerData.chargerVoltage * (uint32_t)solarChargerData.chargerCurrent)/1000;
+	int spiTemperatureC = solarChargerData.cpuTemperature;
+	double panelVoltageV = solarChargerData.panelVoltage/100.00;
+	double batteryVoltageV = solarChargerData.chargerVoltage/100.0;
+	int chargerStatus = solarChargerData.deviceState;
+	int energyConsumptionYesterdayWh = solarChargerData.consumedYesterday * 10;
+	int rpiTemperatureC = SysMon::instance().getCpuTemperature();
+
+#define MAX_COMMAND_LENGHT 1000
 	char command[MAX_COMMAND_LENGHT];
 	snprintf(command, MAX_COMMAND_LENGHT,
-		"curl -d \"d=%4u%02u%02u\" -d \"t=%02u:%02u\" "
-		"-d \"v1=%d\" -d \"v2=%d\" "
-		"-d \"v3=%d\" -d \"v4=%d\" "
-		"-d \"v5=%3.1f\" -d \"v6=%4.1f\" "
+		"curl -d \"d=%4u%02u%02u\" -d \"t=%02u:%02u\" "	// timeInfo
+		"-d \"v1=%d\" -d \"v2=%d\" "					// energyGenerationWh, powerGenerationW
+		"-d \"v3=%d\" -d \"v4=%d\" "					// energyConsumptionWh, powerConsumptionW
+		"-d \"v5=%d\" -d \"v6=%4.1f\" "					// spiTemperatureC, panelVoltageV
+		"-d \"v7=%4.1f\" -d \"v8=%d\" "					// batteryVoltageV, chargerStatus
+		"-d \"v9=%d\" -d \"v10=%d\" "					// energyConsumptionYesterdayWh, rpiTemperatureC
+		"-d \"v11=%d\" -d \"v12=%d\" "					// solarChargerData.chargerCurrent, solarChargerData.loadCurrent
 		"-H \"X-Pvoutput-Apikey: %s\" -H \"X-Pvoutput-SystemId: %d\" "
 		"http://pvoutput.org/service/r2/addstatus.jsp",
 		timeInfo->tm_year+1900, timeInfo->tm_mon+1, timeInfo->tm_mday, timeInfo->tm_hour, timeInfo->tm_min,
-		energyGenerationWatsPerHour, powerGenerationWats,
-		energyConsumptionWatsPerHour, powerConsumptionWats,
-		temperature, voltage,
+		energyGenerationWh, powerGenerationW,
+		energyConsumptionWh, powerConsumptionW,
+		spiTemperatureC, panelVoltageV,
+		batteryVoltageV, chargerStatus,
+		energyConsumptionYesterdayWh, rpiTemperatureC,
+		solarChargerData.chargerCurrent, solarChargerData.loadCurrent,
 		PvoutputApikey.c_str(), PvoutputSystemId);
+	LOG_INFO << command;
 	system(command);
 }
 
 static void downloadFromSPi(int argc, char *argv[])
 {
-	Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword);
+	bool connected = Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword);
 	for(;;) {
 		SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
 		if (solarChargerData.time == 0)
@@ -187,7 +199,8 @@ static void downloadFromSPi(int argc, char *argv[])
 		publishSolarChargerData(solarChargerData);
 		Xively::instance().publish(solarChargerData);
 	}
-	Xively::instance().join();
+	if (connected)
+		Xively::instance().join();
 	parseCommandLine(argc, argv);
 }
 
@@ -226,11 +239,12 @@ static int uploadToSPi()
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, stopProcessing);
-	configureLogger();
 	if (wiringPiSetupGpio() == -1) {
 		LOG_ERROR << "wiringPiSetupGpio initialisation failed";
 		return EXIT_FAILURE;
 	}
+	pinMode(25, OUTPUT);	// GPIO25 is connected to Sleepy Pi
+	digitalWrite(25, 1);	// indicate to Sleep Pi that SysMon is running and should not force power off
 
 	parseCommandLine(argc, argv);
 	setRelays();
@@ -267,6 +281,7 @@ int main(int argc, char *argv[])
 			SysMon::instance().rebootRouter(routerPowerOffTime);
 	}
 
+	system("/etc/init.d/ntp stop; ntpd -q -g; /etc/init.d/ntp start");	// synchronize local clock with Internet
 	downloadFromSPi(argc, argv);
 
 	int confirmRPiShutdown = uploadToSPi();
@@ -275,6 +290,7 @@ int main(int argc, char *argv[])
 	if (shutdownRPi && confirmRPiShutdown) {
 		system("i2cset -y 1 0x24 0xFF");	// switch the SPi Software Jumper OFF
 		LOG_TRACE << "Shutting down now!";
+		digitalWrite(25, 0);				// indicate to Sleep Pi that SysMon is not running and could force power off
 		system("sudo shutdown -h now");
 	} else
 		system("i2cset -y 1 0x24 0xFD");	// switch the SPi Software Jumper ON
