@@ -33,7 +33,7 @@ using namespace boost::iostreams;
 using namespace boost::filesystem;
 
 // RtiProxyClient logging control variables
-static bool consoleLogging = true;			// when set to true, enables logging to console
+static bool consoleLogging = false;			// when set to true, enables logging to console
 static bool shutdownRPi = false;			// when set to true, shut down Raspberry Pi
 static string logLevel = "info";			// RtiProxyClient logging threshold level: trace|debug|info|warning|error|fatal
 static string logFileName = "";				// non empty string enables logging into a file
@@ -132,8 +132,6 @@ static void parseCommandLine(int argc, char *argv[])
 		}
 		if (variablesMap.count("consoleLog"))
 			consoleLogging = true;
-		if (variablesMap.count("shutdownRPi"))
-			shutdownRPi = true;
 		if (variablesMap.count("config")) {
 			std::ifstream configStream {variablesMap["config"].as<std::string>().c_str()};
 			if (configStream) {
@@ -150,6 +148,7 @@ static void parseCommandLine(int argc, char *argv[])
             throw e;
         }
     }
+	configureLogger();
 }
 
 static void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
@@ -192,7 +191,7 @@ static void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 
 static void downloadFromSPi(int argc, char *argv[])
 {
-	Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword);
+	bool connected = Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword);
 	for(;;) {
 		SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
 		if (solarChargerData.time == 0)
@@ -200,7 +199,8 @@ static void downloadFromSPi(int argc, char *argv[])
 		publishSolarChargerData(solarChargerData);
 		Xively::instance().publish(solarChargerData);
 	}
-	Xively::instance().join();
+	if (connected)
+		Xively::instance().join();
 	parseCommandLine(argc, argv);
 }
 
@@ -239,11 +239,12 @@ static int uploadToSPi()
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, stopProcessing);
-	configureLogger();
 	if (wiringPiSetupGpio() == -1) {
 		LOG_ERROR << "wiringPiSetupGpio initialisation failed";
 		return EXIT_FAILURE;
 	}
+	pinMode(25, OUTPUT);	// GPIO25 is connected to Sleepy Pi
+	digitalWrite(25, 1);	// indicate to Sleep Pi that SysMon is running and should not force power off
 
 	parseCommandLine(argc, argv);
 	setRelays();
@@ -289,6 +290,7 @@ int main(int argc, char *argv[])
 	if (shutdownRPi && confirmRPiShutdown) {
 		system("i2cset -y 1 0x24 0xFF");	// switch the SPi Software Jumper OFF
 		LOG_TRACE << "Shutting down now!";
+		digitalWrite(25, 0);				// indicate to Sleep Pi that SysMon is not running and could force power off
 		system("sudo shutdown -h now");
 	} else
 		system("i2cset -y 1 0x24 0xFD");	// switch the SPi Software Jumper ON

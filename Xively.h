@@ -31,15 +31,17 @@ public:
 	void join();
 
 private:
-#define CONNECTION_TIMEOUT	10
-#define KEEPALIVE_TIMEOUT	20
-#define MAX_MESSAGE_SIZE	1024
+#define CONNECTION_TIMEOUT		10
+#define KEEPALIVE_TIMEOUT		20
+#define MAX_MESSAGE_SIZE		1024
+#define MAX_CONNECTION_RETRIES	5
 	void connect();
 	void subscribe();
 	static void publish(const xi_context_handle_t, const xi_timed_task_handle_t, void*);
 	void shutdown();
 	Xively() :
-		_context(XI_INVALID_CONTEXT_HANDLE)
+		_context(XI_INVALID_CONTEXT_HANDLE),
+		_retryConnection(0)
 	{
 	}
 	virtual ~Xively() {}
@@ -51,6 +53,7 @@ private:
 	std::list<SysMon::SolarChargerData> _solarChargerDataList;
 	char _message[MAX_MESSAGE_SIZE];
 	std::vector<std::string> _channel;
+	int _retryConnection;
 };
 
 #endif /* XIVELY_H_ */

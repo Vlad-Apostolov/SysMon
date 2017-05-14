@@ -39,9 +39,10 @@ bool Xively::init(std::string accountId, std::string deviceId, std::string passw
 	os << "xi/blue/v1/" << _accountId << "/d/" << deviceId << "/_log";
 	_channel.push_back(os.str());
 	if (xi_initialize(_accountId.c_str(), _deviceId.c_str(), NULL) == XI_STATE_OK) {
-		if ((_context = xi_create_context()) >  XI_INVALID_CONTEXT_HANDLE)
+		if ((_context = xi_create_context()) >  XI_INVALID_CONTEXT_HANDLE) {
+			_retryConnection = MAX_CONNECTION_RETRIES;
 			result = true;
-		else
+		} else
 			LOG_ERROR << __PRETTY_FUNCTION__ << "Xively failed to create content";
 	} else
 		LOG_ERROR << __PRETTY_FUNCTION__ << "Xively failed to initialize";
@@ -168,7 +169,11 @@ void Xively::connect()
 				break;
 			case XI_CONNECTION_STATE_OPEN_FAILED:
 				LOG_ERROR << __PRETTY_FUNCTION__ << "Xively connection failed, state " << state;
-				Xively::instance().connect();
+				if (Xively::instance()._retryConnection) {
+					Xively::instance()._retryConnection--;
+					Xively::instance().connect();
+				} else
+	                xi_events_stop();
 				break;
 			case XI_CONNECTION_STATE_CLOSED:
 				LOG_INFO << __PRETTY_FUNCTION__ << " Xively connection closed, state " << state;
