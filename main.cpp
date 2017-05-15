@@ -236,6 +236,26 @@ static int uploadToSPi()
 	return spiData;
 }
 
+void workerThread()
+{
+	LOG_TRACE << __PRETTY_FUNCTION__ << " started, thread id: " << boost::this_thread::get_id() << endl;
+
+	while(true)	{
+		try	{
+			boost::system::error_code error;
+			processingScheduler->run(error);
+			if (error)
+				LOG_WARNING << __PRETTY_FUNCTION__ << " ioService->run error: " << error.message() << endl;
+			break;
+		}
+		catch(exception &exception) {
+			LOG_WARNING << __PRETTY_FUNCTION__ << " thread id: " << boost::this_thread::get_id() << exception.what() << endl;
+		}
+	}
+
+	LOG_TRACE << __PRETTY_FUNCTION__ << " thread id: " << boost::this_thread::get_id() << " finished" << endl;
+}
+
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, stopProcessing);
@@ -251,34 +271,36 @@ int main(int argc, char *argv[])
 
 	shared_ptr<boost::asio::io_service> io_service(new boost::asio::io_service);
 	processingScheduler = io_service;
-	std::size_t pingReplies = 0;
+	size_t pingReplies = 0;
 	bool firstReboot = true;
-	while (true) {	// check Internet connection
-		time_t upTime = time(NULL);
-		time_t now = upTime;
-		while ((now - upTime) <= webConnectionCheckTime) {
-			try
-			{
-				pinger ping(processingScheduler, pingServerName.c_str(), 1);
-				processingScheduler->run();
-				pingReplies = ping.getReplies();
+	while (!pingReplies) {
+		try
+		{
+			pinger ping(processingScheduler, pingServerName.c_str());
+			boost::thread t{workerThread};
+			while (true) {	// check Internet connection
+				time_t upTime = time(NULL);
+				time_t now;
+				do {
+					sleep(1);
+					pingReplies = ping.getReplies();
+					now = time(NULL);
+				} while (!pingReplies && (now - upTime) <= webConnectionCheckTime);
 				if (pingReplies)
 					break;
+				LOG_INFO << " Rebooting router!" << endl;
+				if (firstReboot) {
+					firstReboot = false;
+					SysMon::instance().rebootRouter(10);	// try short (10 seconds) router power off time
+				} else
+					SysMon::instance().rebootRouter(routerPowerOffTime);
 			}
-			catch (std::exception& e)
-			{
-				LOG_ERROR << "Exception: " << e.what();
-			}
-			sleep(1);
-			now = time(NULL);
 		}
-		if (pingReplies)
-			break;
-		if (firstReboot) {
-			firstReboot = false;
-			SysMon::instance().rebootRouter(10);	// try short (10 seconds) router power off time
-		} else
-			SysMon::instance().rebootRouter(routerPowerOffTime);
+		catch (std::exception& e)
+		{
+			LOG_ERROR << "Exception: " << e.what();
+			stopProcessing(0);
+		}
 	}
 
 	system("/etc/init.d/ntp stop; ntpd -q -g; /etc/init.d/ntp start");	// synchronize local clock with Internet
