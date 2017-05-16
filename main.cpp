@@ -102,7 +102,7 @@ static void parseCommandLine(int argc, char *argv[])
 			("consoleLog,c", "Enable console logging")
 			("shutdownRPi", value<bool>(&shutdownRPi)->default_value(false), "Shutdown Raspberry Pi")
 			("logFileName,f", value<string>(&logFileName)->default_value(""), "File name for logging")
-			("pingServerName,p", value<string>(&pingServerName)->default_value("google.com"), "Server name to ping")
+			("pingServerName,p", value<string>(&pingServerName)->default_value("8.8.8.8"), "Server name to ping")
 			("webConnectionCheckTime,w", value<time_t>(&webConnectionCheckTime)->default_value(60), "Max number of seconds to check for connection to Internet")
 			("routerPowerOffTime,r", value<time_t>(&routerPowerOffTime)->default_value(60), "Number of seconds to keep the router power off")
 			("rpiSleepTime,s", value<int>(&rpiSleepTime)->default_value(30), "Number of minutes for Raspberry Pi to sleep after shutdown")
@@ -236,6 +236,26 @@ static int uploadToSPi()
 	return spiData;
 }
 
+void workerThread()
+{
+	LOG_TRACE << __PRETTY_FUNCTION__ << " started, thread id: " << boost::this_thread::get_id() << endl;
+
+	while(true)	{
+		try	{
+			boost::system::error_code error;
+			processingScheduler->run(error);
+			if (error)
+				LOG_WARNING << __PRETTY_FUNCTION__ << " ioService->run error: " << error.message() << endl;
+			break;
+		}
+		catch(exception &exception) {
+			LOG_WARNING << __PRETTY_FUNCTION__ << " thread id: " << boost::this_thread::get_id() << exception.what() << endl;
+		}
+	}
+
+	LOG_TRACE << __PRETTY_FUNCTION__ << " thread id: " << boost::this_thread::get_id() << " finished" << endl;
+}
+
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, stopProcessing);
@@ -248,37 +268,39 @@ int main(int argc, char *argv[])
 
 	parseCommandLine(argc, argv);
 	setRelays();
-
-	shared_ptr<boost::asio::io_service> io_service(new boost::asio::io_service);
-	processingScheduler = io_service;
-	std::size_t pingReplies = 0;
+	size_t pingReplies = 0;
 	bool firstReboot = true;
-	while (true) {	// check Internet connection
-		time_t upTime = time(NULL);
-		time_t now = upTime;
-		while ((now - upTime) <= webConnectionCheckTime) {
-			try
-			{
-				pinger ping(processingScheduler, pingServerName.c_str(), 1);
-				processingScheduler->run();
-				pingReplies = ping.getReplies();
-				if (pingReplies)
-					break;
-			}
-			catch (std::exception& e)
-			{
-				LOG_ERROR << "Exception: " << e.what();
-			}
-			sleep(1);
-			now = time(NULL);
+	time_t upTime = time(NULL);
+	time_t now = upTime;
+	while (!pingReplies) {
+		try
+		{
+			// check Internet connection
+			shared_ptr<boost::asio::io_service> io_service(new boost::asio::io_service);
+			processingScheduler = io_service;
+			pinger ping(processingScheduler, pingServerName.c_str());
+			boost::thread t{workerThread};
+			sleep(2);
+			pingReplies = ping.getReplies();
+			if (pingReplies)
+				break;
 		}
-		if (pingReplies)
-			break;
-		if (firstReboot) {
-			firstReboot = false;
-			SysMon::instance().rebootRouter(10);	// try short (10 seconds) router power off time
-		} else
-			SysMon::instance().rebootRouter(routerPowerOffTime);
+		catch (std::exception& e)
+		{
+			LOG_ERROR << "Exception: " << e.what();
+		}
+		stopProcessing(0);
+		sleep(1);
+		now = time(NULL);
+		if ((now - upTime) > webConnectionCheckTime) {
+			LOG_INFO << " Rebooting router!" << endl;
+			if (firstReboot) {
+				firstReboot = false;
+				SysMon::instance().rebootRouter(10);	// try short (10 seconds) router power off time
+			} else
+				SysMon::instance().rebootRouter(routerPowerOffTime);
+			upTime = time(NULL);
+		}
 	}
 
 	system("/etc/init.d/ntp stop; ntpd -q -g; /etc/init.d/ntp start");	// synchronize local clock with Internet

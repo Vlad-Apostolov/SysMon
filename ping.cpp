@@ -39,18 +39,12 @@
 
   void pinger::handle_timeout()
   {
-	  if (num_replies_ || num_retries_ == 0) {
-		  io_service_->stop();
-		  return;
-	  }
-	  num_retries_--;
+    if (num_replies_ == 0)
+      std::cout << "Ping request timed out" << std::endl;
 
-//    if (num_replies_ == 0)
-//      std::cout << "Request timed out" << std::endl;
-//
-//    // Requests must be sent no less than one second apart.
-//    timer_.expires_at(time_sent_ + posix_time::seconds(1));
-//    timer_.async_wait(boost::bind(&pinger::start_send, this));
+    // Requests must be sent no less than one second apart.
+    timer_.expires_at(time_sent_ + posix_time::seconds(1));
+    timer_.async_wait(boost::bind(&pinger::start_send, this));
   }
 
   void pinger::start_receive()
@@ -96,9 +90,8 @@
         << ", ttl=" << ipv4_hdr.time_to_live()
         << ", time=" << (now - time_sent_).total_milliseconds() << " ms"
         << std::endl;
-    }
-
-    //start_receive();
+    } else
+    	start_receive();
   }
 
   unsigned short pinger::get_identifier()
