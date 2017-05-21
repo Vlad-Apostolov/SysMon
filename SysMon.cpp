@@ -12,6 +12,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <iomanip>
+#include <wiringPi.h>
 
 #include "SysMon.h"
 #include "simpleLogger.h"
@@ -88,13 +89,12 @@ bool SysMon::sendMessage(const char* message)
 {
 	if (_i2cFd < 0)
 		return false;
+	waitForI2cToFinish();
 	int length = strlen(message) + 1;
 	if (write(_i2cFd, message, length) != length) {
 		LOG_ERROR << "Failed to write to the i2c bus";
 		return false;
 	}
-	fsync(_i2cFd);
-	sleep(1);	// wait for i2c transfer to finish (fsync and O_SYNC don't work)
 	return true;
 }
 
@@ -103,6 +103,7 @@ SysMon::SolarChargerData& SysMon::getSolarChargerData()
 	int length = sizeof(SolarChargerData);
 	memset(&_solarChargerData, 0, length);
 	if (_i2cFd >= 0) {
+		waitForI2cToFinish();
 		if (read(_i2cFd, &_solarChargerData, length) != length)
 			LOG_ERROR << "Failed to read from the i2c bus";
 	}
@@ -120,6 +121,21 @@ int8_t SysMon::getCpuTemperature()
 	fclose (temperatureFile);
 	temperature /= 1000;
 	return round(temperature);
+}
+
+void SysMon::waitForI2cToFinish()
+{
+#define	WAIT_MS		100
+	int timeout = WAIT_MS;		// wait for I2C SCL line to stabilize high
+	while(true) {
+		if (!digitalRead(3))	// Raspberry Pi GPIO 3 is the I2C SCL line
+			timeout = WAIT_MS;
+		else if (timeout)
+			timeout--;
+		else
+			break;				// I2C SCL line has been high for 10 ms. The I2C transaction has finished.
+		usleep(1000);			// sleep for 1 ms
+	}
 }
 
 SysMon::~SysMon()
