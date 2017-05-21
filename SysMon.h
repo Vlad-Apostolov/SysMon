@@ -67,6 +67,7 @@ private:
 	virtual ~SysMon();
 
 	bool sendMessage(const char* message);
+	void waitForI2cToFinish();
 
 	uint16_t _pduControl;
 	int _i2cFd;
