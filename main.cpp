@@ -37,7 +37,7 @@ static bool consoleLogging = false;			// when set to true, enables logging to co
 static bool shutdownRPi = false;			// when set to true, shut down Raspberry Pi
 static string logLevel = "info";			// RtiProxyClient logging threshold level: trace|debug|info|warning|error|fatal
 static string logFileName = "";				// non empty string enables logging into a file
-static string pingServerName = "";
+static string pingServerName = "8.8.8.8";
 static time_t webConnectionCheckTime;
 static time_t routerPowerOffTime;
 static int rpiSleepTime;
@@ -140,13 +140,8 @@ static void parseCommandLine(int argc, char *argv[])
 			}
 		}
 		notify(variablesMap);
-	} catch (const boost::program_options::required_option& e) {
-        if (variablesMap.count("help")) {
-            cout << optionsDescription << endl;
-			exit(EXIT_FAILURE);
-        } else {
-            throw e;
-        }
+	} catch (const error& e) {
+		std::cerr << e.what() << '\n';
     }
 	configureLogger();
 }
@@ -201,6 +196,10 @@ static void downloadFromSPi(int argc, char *argv[])
 	}
 	if (connected)
 		Xively::instance().join();
+	if (!connected || !Xively::instance().receivedMessage()) {
+		system("cp lastGoodConfig.txt config.txt");		// restore last know good Xively credentials
+		shutdownRPi = true;
+	}
 	parseCommandLine(argc, argv);
 }
 

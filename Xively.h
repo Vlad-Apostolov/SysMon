@@ -28,6 +28,7 @@ public:
 	static Xively& instance();
 	bool init(std::string accountId, std::string deviceId, std::string password);
 	void publish(SysMon::SolarChargerData& solarChargerData) { _solarChargerDataList.push_back(solarChargerData); }
+	bool receivedMessage() { return _receivedMessage; }
 	void join();
 
 private:
@@ -41,7 +42,7 @@ private:
 	void shutdown();
 	Xively() :
 		_context(XI_INVALID_CONTEXT_HANDLE),
-		_retryConnection(0)
+		_receivedMessage(false)
 	{
 	}
 	virtual ~Xively() {}
@@ -53,7 +54,7 @@ private:
 	std::list<SysMon::SolarChargerData> _solarChargerDataList;
 	char _message[MAX_MESSAGE_SIZE];
 	std::vector<std::string> _channel;
-	int _retryConnection;
+	bool _receivedMessage;
 };
 
 #endif /* XIVELY_H_ */

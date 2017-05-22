@@ -39,10 +39,9 @@ bool Xively::init(std::string accountId, std::string deviceId, std::string passw
 	os << "xi/blue/v1/" << _accountId << "/d/" << deviceId << "/_log";
 	_channel.push_back(os.str());
 	if (xi_initialize(_accountId.c_str(), _deviceId.c_str(), NULL) == XI_STATE_OK) {
-		if ((_context = xi_create_context()) >  XI_INVALID_CONTEXT_HANDLE) {
-			_retryConnection = MAX_CONNECTION_RETRIES;
+		if ((_context = xi_create_context()) >  XI_INVALID_CONTEXT_HANDLE)
 			result = true;
-		} else
+		else
 			LOG_ERROR << __PRETTY_FUNCTION__ << "Xively failed to create content";
 	} else
 		LOG_ERROR << __PRETTY_FUNCTION__ << "Xively failed to initialize";
@@ -56,18 +55,21 @@ void Xively::subscribe()
         switch (callType)
         {
             case XI_SUB_CALL_SUBACK:
-                if (params->suback.suback_status == XI_MQTT_SUBACK_FAILED)
+                if (params->suback.suback_status == XI_MQTT_SUBACK_FAILED) {
                 	LOG_INFO << __PRETTY_FUNCTION__ << " Subscription for topic " << params->suback.topic << " failed";
-                else
+                	xi_events_stop();
+                } else
                 	LOG_INFO << __PRETTY_FUNCTION__ << " Subscription for topic " << params->suback.topic << " successful";
                 break;
             case XI_SUB_CALL_MESSAGE:
             {
             	LOG_INFO << __PRETTY_FUNCTION__ << " Received message: \n" << ((char*)(params->message.temporary_payload_data));
 				std::ofstream configFile;
+				system("rm lastGoodConfig.txt; mv config.txt lastGoodConfig.txt");
 				configFile.open("config.txt");
 				configFile << ((char*)(params->message.temporary_payload_data));
 				configFile.close();
+				Xively::instance()._receivedMessage = true;
             	xi_events_stop();
             }
                 break;
@@ -79,10 +81,11 @@ void Xively::subscribe()
 
 void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, void*)
 {
-	if (Xively::instance()._solarChargerDataList.empty())
+	auto This = Xively::instance();
+	if (This._solarChargerDataList.empty())
 		return;
 
-	auto& solarChargerData = Xively::instance()._solarChargerDataList.front();
+	auto& solarChargerData = This._solarChargerDataList.front();
 	tm* timeInfo = localtime((time_t*)&solarChargerData.time);
 	const char* chargerStatus;
 	switch (solarChargerData.deviceState) {
@@ -111,7 +114,7 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 		chargerStatus = "UNKNOWN";
 		break;
 	}
-	snprintf(Xively::instance()._message, MAX_MESSAGE_SIZE,
+	snprintf(This._message, MAX_MESSAGE_SIZE,
 		"Date: %2u/%02u/%04u Time: %02u:%02u\n\r"
 		"Energy Generation %d Wh\n\r"
 		"Power Generation %3.2f W\n\r"
@@ -135,16 +138,16 @@ void Xively::publish(const xi_context_handle_t, const xi_timed_task_handle_t, vo
 		solarChargerData.consumedYesterday * 10,
 		SysMon::instance().getCpuTemperature()
 	);
-	Xively::instance()._solarChargerDataList.pop_front();
-    xi_publish(Xively::instance()._context,
-    		   Xively::instance()._channel[MC_2].c_str(),
-    		   Xively::instance()._message,
+	This._solarChargerDataList.pop_front();
+    xi_publish(This._context,
+    		   This._channel[MC_2].c_str(),
+    		   This._message,
     		   XI_MQTT_QOS_AT_LEAST_ONCE,
     		   XI_MQTT_RETAIN_TRUE,
     		   NULL,
     		   NULL);
-	if (!Xively::instance()._solarChargerDataList.empty()) {
-		xi_schedule_timed_task(Xively::instance()._context, Xively::publish, 5, 0, NULL);
+	if (!This._solarChargerDataList.empty()) {
+		xi_schedule_timed_task(This._context, Xively::publish, 5, 0, NULL);
 		return;
 	}
 }
@@ -160,27 +163,24 @@ void Xively::connect()
 			   [](xi_context_handle_t context, void* data, xi_state_t state)
 	{
 		auto& connectionData = *(xi_connection_data_t*)data;
+		auto This = Xively::instance();
 		switch (connectionData.connection_state)
 		{
 			case XI_CONNECTION_STATE_OPENED:
 				LOG_INFO << __PRETTY_FUNCTION__ << " Xively connected";
-				Xively::instance().subscribe();
-				publish(Xively::instance()._context, XI_INVALID_TIMED_TASK_HANDLE, NULL);
+				This.subscribe();
+				publish(This._context, XI_INVALID_TIMED_TASK_HANDLE, NULL);
 				break;
 			case XI_CONNECTION_STATE_OPEN_FAILED:
 				LOG_ERROR << __PRETTY_FUNCTION__ << "Xively connection failed, state " << state;
-				if (Xively::instance()._retryConnection) {
-					Xively::instance()._retryConnection--;
-					Xively::instance().connect();
-				} else
-	                xi_events_stop();
+				xi_events_stop();
 				break;
 			case XI_CONNECTION_STATE_CLOSED:
 				LOG_INFO << __PRETTY_FUNCTION__ << " Xively connection closed, state " << state;
 	            if (state == XI_STATE_OK)
 	                xi_events_stop();
 	            else
-	            	Xively::instance().connect();
+	            	This.connect();
 				break;
 			default:
 				LOG_ERROR << __PRETTY_FUNCTION__ << " Unexpected connection_state";
