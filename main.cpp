@@ -179,7 +179,7 @@ static void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 		"-d \"v5=%d\" -d \"v6=%4.1f\" "					// spiTemperatureC, panelVoltageV
 		"-d \"v7=%4.1f\" -d \"v8=%d\" "					// batteryVoltageV, chargerStatus
 		"-d \"v9=%d\" -d \"v10=%d\" "					// energyConsumptionYesterdayWh, rpiTemperatureC
-		"-d \"v11=%4.1f\" -d \"v12=%d\" "					// loadCurrent, shutdownRPi
+		"-d \"v11=%01.1f\" -d \"v12=%d\" "				// loadCurrent, shutdownRPi
 		"-H \"X-Pvoutput-Apikey: %s\" -H \"X-Pvoutput-SystemId: %d\" "
 		"http://pvoutput.org/service/r2/addstatus.jsp",
 		timeInfo->tm_year+1900, timeInfo->tm_mon+1, timeInfo->tm_mday, timeInfo->tm_hour, timeInfo->tm_min,
