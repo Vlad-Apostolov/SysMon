@@ -32,14 +32,17 @@ using namespace boost::program_options;
 using namespace boost::iostreams;
 using namespace boost::filesystem;
 
+#define	DEFAULT_WEB_CONNECTION_CHECK_TIME	60
+#define	DEFAULT_ROUTER_POWER_OFF_TIME		60
+#define DEFAULT_PING_SERVER_NAME			"8.8.8.8"
 // RtiProxyClient logging control variables
 static bool consoleLogging = false;			// when set to true, enables logging to console
 static bool shutdownRPi = false;			// when set to true, shut down Raspberry Pi
 static string logLevel = "info";			// RtiProxyClient logging threshold level: trace|debug|info|warning|error|fatal
 static string logFileName = "";				// non empty string enables logging into a file
-static string pingServerName = "8.8.8.8";
-static time_t webConnectionCheckTime;
-static time_t routerPowerOffTime;
+static string pingServerName = DEFAULT_PING_SERVER_NAME;
+static time_t webConnectionCheckTime = DEFAULT_WEB_CONNECTION_CHECK_TIME;
+static time_t routerPowerOffTime = DEFAULT_ROUTER_POWER_OFF_TIME;
 static int rpiSleepTime;
 static int spiSleepTime;
 static string PvoutputApikey;
@@ -102,9 +105,9 @@ static void parseCommandLine(int argc, char *argv[])
 			("consoleLog,c", "Enable console logging")
 			("shutdownRPi", value<bool>(&shutdownRPi)->default_value(false), "Shutdown Raspberry Pi")
 			("logFileName,f", value<string>(&logFileName)->default_value(""), "File name for logging")
-			("pingServerName,p", value<string>(&pingServerName)->default_value("8.8.8.8"), "Server name to ping")
-			("webConnectionCheckTime,w", value<time_t>(&webConnectionCheckTime)->default_value(60), "Max number of seconds to check for connection to Internet")
-			("routerPowerOffTime,r", value<time_t>(&routerPowerOffTime)->default_value(60), "Number of seconds to keep the router power off")
+			("pingServerName,p", value<string>(&pingServerName)->default_value(DEFAULT_PING_SERVER_NAME), "Server name to ping")
+			("webConnectionCheckTime,w", value<time_t>(&webConnectionCheckTime)->default_value(DEFAULT_WEB_CONNECTION_CHECK_TIME), "Max number of seconds to check for connection to Internet")
+			("routerPowerOffTime,r", value<time_t>(&routerPowerOffTime)->default_value(DEFAULT_ROUTER_POWER_OFF_TIME), "Number of seconds to keep the router power off")
 			("rpiSleepTime,s", value<int>(&rpiSleepTime)->default_value(30), "Number of minutes for Raspberry Pi to sleep after shutdown")
 			("spiSleepTime", value<int>(&spiSleepTime)->default_value(5), "Number of minutes for Sleepy Pi to sleep")
 			("PvoutputApikey,a", value<string>(&PvoutputApikey), "X-Pvoutput-Apikey")
@@ -120,7 +123,7 @@ static void parseCommandLine(int argc, char *argv[])
 			("relay6", value<bool>(&relay6)->default_value(false), "Turn relay 6 on/off")
 			("relay7", value<bool>(&relay7)->default_value(false), "Turn relay 7 on/off")
 			("relay8", value<bool>(&relay8)->default_value(false), "Turn relay 8 on/off")
-			("config", value<std::string>(), "Config file");
+			("config", value<string>(), "Config file");
 
 		command_line_parser parser{argc, argv};
 		parser.options(optionsDescription).allow_unregistered();
@@ -133,7 +136,7 @@ static void parseCommandLine(int argc, char *argv[])
 		if (variablesMap.count("consoleLog"))
 			consoleLogging = true;
 		if (variablesMap.count("config")) {
-			std::ifstream configStream {variablesMap["config"].as<std::string>().c_str()};
+			std::ifstream configStream {variablesMap["config"].as<string>().c_str()};
 			if (configStream) {
 				store(parse_config_file(configStream, optionsDescription), variablesMap);
 				configStream.close();
@@ -141,9 +144,15 @@ static void parseCommandLine(int argc, char *argv[])
 		}
 		notify(variablesMap);
 	} catch (const error& e) {
-		std::cerr << e.what() << '\n';
+		cerr << e.what() << '\n';
     }
 	configureLogger();
+}
+
+static int systemCommand(const char* command)
+{
+	LOG_INFO << command;
+	return system(command);
 }
 
 static void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
@@ -169,7 +178,7 @@ static void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 		"-d \"v5=%d\" -d \"v6=%4.1f\" "					// spiTemperatureC, panelVoltageV
 		"-d \"v7=%4.1f\" -d \"v8=%d\" "					// batteryVoltageV, chargerStatus
 		"-d \"v9=%d\" -d \"v10=%d\" "					// energyConsumptionYesterdayWh, rpiTemperatureC
-		"-d \"v11=%d\" -d \"v12=%d\" "					// solarChargerData.chargerCurrent, solarChargerData.loadCurrent
+		"-d \"v11=%d\" -d \"v12=%d\" "					// solarChargerData.loadCurrent, shutdownRPi
 		"-H \"X-Pvoutput-Apikey: %s\" -H \"X-Pvoutput-SystemId: %d\" "
 		"http://pvoutput.org/service/r2/addstatus.jsp",
 		timeInfo->tm_year+1900, timeInfo->tm_mon+1, timeInfo->tm_mday, timeInfo->tm_hour, timeInfo->tm_min,
@@ -178,29 +187,40 @@ static void publishSolarChargerData(SysMon::SolarChargerData& solarChargerData)
 		spiTemperatureC, panelVoltageV,
 		batteryVoltageV, chargerStatus,
 		energyConsumptionYesterdayWh, rpiTemperatureC,
-		solarChargerData.chargerCurrent, solarChargerData.loadCurrent,
+		solarChargerData.loadCurrent, shutdownRPi,
 		PvoutputApikey.c_str(), PvoutputSystemId);
-	LOG_INFO << command;
-	system(command);
+	systemCommand(command);
 }
 
 static void downloadFromSPi(int argc, char *argv[])
 {
-	bool connected = Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword);
+#ifdef USE_XIVELY
+	bool connected = false;
+	if (!xivelyAccountId.empty() && !xivelyDeviceId.empty() && !xivelyPassword.empty())
+		connected = Xively::instance().init(xivelyAccountId, xivelyDeviceId, xivelyPassword);
+	for(;;) {
+		SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
+		if (solarChargerData.time == 0)
+			break;
+		if (connected)
+			Xively::instance().publish(solarChargerData);
+		publishSolarChargerData(solarChargerData);
+	}
+	if (connected)
+		Xively::instance().join();
+	if (!connected || !Xively::instance().receivedMessage()) {
+		systemCommand("cp lastGoodConfig.txt config.txt");	// restore last know good Xively credentials
+		shutdownRPi = true;
+	}
+	parseCommandLine(argc, argv);
+#else
 	for(;;) {
 		SysMon::SolarChargerData& solarChargerData = SysMon::instance().getSolarChargerData();
 		if (solarChargerData.time == 0)
 			break;
 		publishSolarChargerData(solarChargerData);
-		Xively::instance().publish(solarChargerData);
 	}
-	if (connected)
-		Xively::instance().join();
-	if (!connected || !Xively::instance().receivedMessage()) {
-		system("cp lastGoodConfig.txt config.txt");		// restore last know good Xively credentials
-		shutdownRPi = true;
-	}
-	parseCommandLine(argc, argv);
+#endif // USE_XIVELY
 }
 
 static void setRelays()
@@ -235,7 +255,7 @@ static int uploadToSPi()
 	return spiData;
 }
 
-void workerThread()
+static void workerThread()
 {
 	LOG_TRACE << __PRETTY_FUNCTION__ << " started, thread id: " << boost::this_thread::get_id() << endl;
 
@@ -255,18 +275,8 @@ void workerThread()
 	LOG_TRACE << __PRETTY_FUNCTION__ << " thread id: " << boost::this_thread::get_id() << " finished" << endl;
 }
 
-int main(int argc, char *argv[])
+static void ping()
 {
-	signal(SIGINT, stopProcessing);
-	if (wiringPiSetupGpio() == -1) {
-		LOG_ERROR << "wiringPiSetupGpio initialisation failed";
-		return EXIT_FAILURE;
-	}
-	pinMode(25, OUTPUT);	// GPIO25 is connected to Sleepy Pi
-	digitalWrite(25, 1);	// indicate to Sleep Pi that SysMon is running and should not force power off
-
-	parseCommandLine(argc, argv);
-	setRelays();
 	size_t pingReplies = 0;
 	bool firstReboot = true;
 	time_t upTime = time(NULL);
@@ -284,7 +294,7 @@ int main(int argc, char *argv[])
 			if (pingReplies)
 				break;
 		}
-		catch (std::exception& e)
+		catch (exception& e)
 		{
 			LOG_ERROR << "Exception: " << e.what();
 		}
@@ -301,8 +311,88 @@ int main(int argc, char *argv[])
 			upTime = time(NULL);
 		}
 	}
+}
 
-	system("/etc/init.d/ntp stop; ntpd -q -g; /etc/init.d/ntp start");	// synchronize local clock with Internet
+static bool compareFiles(const char* f1, const char* f2) {
+	FILE* pf1 = fopen(f1, "r");
+	FILE* pf2 = fopen(f2, "r");
+
+	if (pf1 == NULL || pf2 == NULL)
+		return true;
+
+	#define MAX_SIZE 1000
+	char buf1[MAX_SIZE];
+	char buf2[MAX_SIZE];
+	size_t s1 = fread(buf1, 1, MAX_SIZE, pf1);
+	size_t s2 = fread(buf2, 1, MAX_SIZE, pf2);
+
+	if (s1 != s2)
+		return false;
+	return !memcmp(buf1, buf2, s1);
+}
+
+static bool getConfig()
+{
+	bool result = false;
+	std::ifstream configFilePath("configFilePath.txt");
+	string path;
+	if (configFilePath.is_open()) {
+		if (getline(configFilePath, path)) {
+			char hostname[HOST_NAME_MAX];
+			if (gethostname(hostname, HOST_NAME_MAX) == 0) {
+				#define MAX_COMMAND_SIZE 1024
+				char command[MAX_COMMAND_SIZE];
+				snprintf(command, MAX_COMMAND_SIZE, "rm /tmp/%s.cfg", hostname);
+				systemCommand(command);
+				snprintf(command, MAX_COMMAND_SIZE, "wget --timeout=10 --directory-prefix=/tmp %s/%s.cfg", path.c_str(), hostname);
+				if (systemCommand(command) == 0) {
+					struct stat fileStat;
+					if (stat("config.txt", &fileStat) == 0) {	// if config.txt exists
+						snprintf(command, MAX_COMMAND_SIZE, "/tmp/%s.cfg", hostname);	// check for updated config.txt
+						if (!compareFiles("config.txt", command)) {
+							snprintf(command, MAX_COMMAND_SIZE, "cp /tmp/%s.cfg config.txt", hostname);
+							systemCommand(command);
+							result = true;
+						}
+					} else {
+						snprintf(command, MAX_COMMAND_SIZE, "cp /tmp/%s.cfg config.txt", hostname);
+						systemCommand(command);
+						result = true;
+					}
+				} else
+					LOG_ERROR << "wget failed!";
+			} else
+				LOG_ERROR << "Can't read host name!";
+		} else
+			LOG_ERROR << "configFilePath.txt is empty!";
+		configFilePath.close();
+	} else
+		LOG_ERROR << "Can't open configFilePath.txt!";
+	return result;
+}
+
+int main(int argc, char *argv[])
+{
+	signal(SIGINT, stopProcessing);
+	if (wiringPiSetupGpio() == -1) {
+		LOG_ERROR << "wiringPiSetupGpio initialisation failed";
+		return EXIT_FAILURE;
+	}
+	pinMode(25, OUTPUT);	// GPIO25 is connected to Sleepy Pi
+	digitalWrite(25, 1);	// indicate to Sleep Pi that SysMon is running and should not force power off
+
+	parseCommandLine(argc, argv);
+	setRelays();
+	ping();
+
+	systemCommand("/etc/init.d/ntp stop; ntpd -q -g; /etc/init.d/ntp start");	// synchronize local clock with Internet
+
+#ifndef USE_XIVELY
+	getConfig();
+#endif
+	parseCommandLine(argc, argv);
+	setRelays();
+
 	downloadFromSPi(argc, argv);
 
 	int confirmRPiShutdown = uploadToSPi();
